@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    env_file:
+      - .env
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    env_file:
+      - .env
+    environment:
+      SA_USERNAME: ${DB_USERNAME}
+      SA_PASSWORD: ${DB_PASSWORD}
+      SA_DBNAME: ${DATABASE_NAME}
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - db_data:/var/opt/mssql
+
+volumes:
+  db_data: {}
