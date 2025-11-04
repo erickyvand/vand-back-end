@@ -15,18 +15,17 @@ services:
       - .env
 
   db:
-    image: mcr.microsoft.com/mssql/server:2019-latest
+    image: postgres:15-alpine
     env_file:
       - .env
     environment:
-      SA_USERNAME: ${DB_USERNAME}
-      SA_PASSWORD: ${DB_PASSWORD}
-      SA_DBNAME: ${DATABASE_NAME}
-      ACCEPT_EULA: "Y"
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - db_data:/var/opt/mssql
+      - db_data:/var/lib/postgresql/data
 
 volumes:
   db_data: {}
