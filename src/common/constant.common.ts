@@ -1,9 +1,8 @@
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable import/no-extraneous-dependencies */
-const path = require('path');
-require('dotenv').config({
+dotenv.config({
   path: path.resolve(`${__dirname}/../../.env`),
 });
 

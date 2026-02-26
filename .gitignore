@@ -58,3 +58,7 @@ node_modules
 node_modules
 
 docs
+
+/generated/prisma
+
+/generated/prisma

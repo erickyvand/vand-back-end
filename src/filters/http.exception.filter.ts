@@ -1,7 +1,7 @@
 import { ArgumentsHost, ExceptionFilter, HttpException } from '@nestjs/common';
 
-import ResponseCommon from 'src/common/response.common';
-import LoggerService from 'src/logger/logger.service';
+import ResponseCommon from '../common/response.common';
+import LoggerService from '../logger/logger.service';
 
 const logger = new LoggerService('catch');
 
