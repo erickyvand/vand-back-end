@@ -6,7 +6,13 @@ dotenv.config({
   path: path.resolve(`${__dirname}/../../.env`),
 });
 
-export const { NODE_ENV, PORT, CORS_ORIGIN_WHITELIST, CONSUMER_NAME, BROKERS_LIST } = process.env;
+export const {
+  NODE_ENV,
+  PORT,
+  CORS_ORIGIN_WHITELIST,
+  CONSUMER_NAME,
+  BROKERS_LIST,
+} = process.env;
 
 const corsWhitelist = CORS_ORIGIN_WHITELIST?.split(';') ?? [];
 export const corsOptions = {
@@ -34,7 +40,8 @@ export const corsOptions = {
 
 export const consumerGroup = [
   {
-    name: 'WELCOME_PACKAGE', topic: 'welcome-package',
+    name: 'WELCOME_PACKAGE',
+    topic: 'welcome-package',
   },
 ];
 

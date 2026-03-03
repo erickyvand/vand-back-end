@@ -62,7 +62,7 @@ class LoggerService extends Logger {
    * @param {String} context Context
    * @return {void}
    */
-  handlErrorLog(message: string, trace?: string, context?: string): void {
+  handleErrorLog(message: string, trace?: string, context?: string): void {
     this.logger.error(message, {
       context,
       trace,

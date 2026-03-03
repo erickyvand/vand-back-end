@@ -26,7 +26,7 @@ class HttpExceptionFilter implements ExceptionFilter {
     // eslint-disable-next-line no-console
     console.log(exceptionResponse);
 
-    logger.handlErrorLog(errorMessage);
+    logger.handleErrorLog(errorMessage);
     ResponseCommon.handleError(status, errorMessage, response);
   }
 }

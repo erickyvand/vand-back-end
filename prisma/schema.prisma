@@ -5,10 +5,114 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../generated/prisma"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["Authentication"]
+}
+
+enum UserType {
+  Internal
+  External
+
+  @@schema("Authentication")
+}
+
+enum Language {
+  en
+  fr
+  rw
+
+  @@schema("Authentication")
+}
+
+// Shared base — everyone
+model User {
+  id            String      @id @default(cuid())
+  fullName      String
+  email         String      @unique
+  phone         String?     @unique
+  password      String
+  userType      UserType
+  language      Language    @default(rw)
+  isActive      Boolean     @default(true)
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  loginCount    Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  // Relations to extensions
+  internalProfile   InternalProfile?
+  externalProfile   ExternalProfile?
+  roles      Role[]
+
+  @@map("Users")
+  @@schema("Authentication")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Opposite relations
+  internalProfiles InternalProfile[]
+  externalProfiles ExternalProfile[]
+
+  @@map("Roles")
+  @@schema("Authentication")
+}
+
+// Internal-specific fields
+model InternalProfile {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  user               User         @relation(fields: [userId], references: [id])
+  roleId             String
+  role               Role         @relation(fields: [roleId], references: [id])
+  mustChangePassword Boolean      @default(true)
+  lastPasswordChange DateTime?
+  twoFactorEnabled   Boolean      @default(false)
+  twoFactorSecret    String?
+  isSuspended        Boolean      @default(false)
+  suspendedReason    String?
+  suspendedAt        DateTime?
+  suspendedBy        String?
+  createdBy          String?
+  avatar             String?
+  bio                String?
+  timezone           String       @default("Africa/Kigali")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@map("InternalProfiles")
+  @@schema("Authentication")
+}
+
+model ExternalProfile {
+  id            String        @id @default(cuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id])
+  roleId        String
+  role          Role          @relation(fields: [roleId], references: [id])
+  isVerified    Boolean       @default(false)
+  avatar        String?
+  bio           String?
+  location      String?
+  interests     String[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("ExternalProfiles")
+  @@schema("Authentication")
 }

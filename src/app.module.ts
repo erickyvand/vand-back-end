@@ -5,6 +5,7 @@ import AppController from './app.controller';
 import AppService from './app.service';
 import MorganMiddleware from './middlewares/morgan.middleware';
 import { AuthModule } from './common/auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 
 /**
  * Consumer objects
@@ -22,6 +23,7 @@ import { AuthModule } from './common/auth/auth.module';
       envFilePath: '.env',
     }),
     AuthModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

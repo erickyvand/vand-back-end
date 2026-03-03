@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
@@ -25,9 +26,13 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, config);
 
   SwaggerModule.setup('api-docs', app, document, {
-    customCss: readFileSync(join(process.cwd(), 'src/swagger-theme.css'), 'utf8'),
+    customCss: readFileSync(
+      join(process.cwd(), 'src/swagger-theme.css'),
+      'utf8',
+    ),
   });
 
+  app.useGlobalPipes(new ValidationPipe());
   app.use(helmet());
 
   app.useGlobalFilters(new HttpExceptionFilter());
