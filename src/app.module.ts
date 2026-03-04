@@ -6,6 +6,7 @@ import AppService from './app.service';
 import MorganMiddleware from './middlewares/morgan.middleware';
 import { AuthModule } from './common/auth/auth.module';
 import { AdminModule } from './admin/admin.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 /**
  * Consumer objects
@@ -22,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    PrismaModule,
     AuthModule,
     AdminModule,
   ],

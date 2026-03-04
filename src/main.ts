@@ -21,6 +21,7 @@ async function bootstrap(): Promise<void> {
     .setTitle('Vand API')
     .setDescription('API documentation for Vand application')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

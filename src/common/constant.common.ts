@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 dotenv.config({
-  path: path.resolve(`${__dirname}/../../.env`),
+  path: path.resolve(`${__dirname}/../../../.env`),
 });
 
 export const {
@@ -12,6 +12,12 @@ export const {
   CORS_ORIGIN_WHITELIST,
   CONSUMER_NAME,
   BROKERS_LIST,
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  JWT_SECRET,
+  JWT_REFRESH_SECRET,
+  JWT_EXPIRATION,
+  JWT_REFRESH_EXPIRATION,
 } = process.env;
 
 const corsWhitelist = CORS_ORIGIN_WHITELIST?.split(';') ?? [];

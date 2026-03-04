@@ -1,10 +1,11 @@
-import { Body, Controller, HttpStatus, Post, Req, Res } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import LoggerService from '../logger/logger.service';
 import { Response } from 'express';
 import { CreateAdminDto } from './dto/create.dto';
 import ResponseCommon from '../common/response.common';
 import AdminService from './admin.service';
+import JwtAuthGuard from '../common/auth/guards/jwt-auth.guard';
 
 const logger = new LoggerService('admin');
 
@@ -16,6 +17,9 @@ class AdminController {
   @Post('create')
   @ApiOperation({ summary: 'Create an admin user' })
   @ApiResponse({ status: 201, description: 'Admin user successfully created.' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+
   async createAdmin(
     @Res() res: Response,
     @Req() req: Request,
