@@ -18,6 +18,12 @@ export const {
   JWT_REFRESH_SECRET,
   JWT_EXPIRATION,
   JWT_REFRESH_EXPIRATION,
+  R2_ACCOUNT_ID,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_BUCKET_NAME,
+  R2_PUBLIC_URL,
+  R2_FOLDER,
 } = process.env;
 
 const corsWhitelist = CORS_ORIGIN_WHITELIST?.split(';') ?? [];

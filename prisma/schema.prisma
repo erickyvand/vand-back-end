@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["Authentication"]
+  schemas  = ["Authentication", "Content"]
 }
 
 enum UserType {
@@ -94,6 +94,9 @@ model InternalProfile {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
+  articles           Article[]
+  uploadedMedia      Media[]
+
   @@map("InternalProfiles")
   @@schema("Authentication")
 }
@@ -114,4 +117,86 @@ model ExternalProfile {
 
   @@map("ExternalProfiles")
   @@schema("Authentication")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  translations CategoryTranslation[]
+  articles     Article[]
+
+  @@map("Categories")
+  @@schema("Content")
+}
+
+model CategoryTranslation {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  language    Language
+  name        String
+  description String?
+
+  @@unique([categoryId, language])
+  @@map("CategoryTranslations")
+  @@schema("Content")
+}
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+
+  @@schema("Content")
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     Json
+  thumbnailId String?
+  thumbnail   Media?          @relation(fields: [thumbnailId], references: [id])
+  language    Language
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+
+  categoryId  String
+  category    Category        @relation(fields: [categoryId], references: [id])
+  authorId    String
+  author      InternalProfile @relation(fields: [authorId], references: [id])
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  @@map("Articles")
+  @@schema("Content")
+}
+
+model Media {
+  id          String          @id @default(cuid())
+  url         String
+  filename    String
+  mimeType    String
+  size        Int
+  uploadedBy  String
+  uploader    InternalProfile @relation(fields: [uploadedBy], references: [id])
+  createdAt   DateTime        @default(now())
+
+  articles    Article[]
+
+  @@map("Media")
+  @@schema("Content")
 }

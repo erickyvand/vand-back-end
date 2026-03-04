@@ -7,6 +7,8 @@ import MorganMiddleware from './middlewares/morgan.middleware';
 import { AuthModule } from './common/auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { R2Module } from './r2/r2.module';
+import { MediaModule } from './media/media.module';
 
 /**
  * Consumer objects
@@ -24,8 +26,10 @@ import { PrismaModule } from './prisma/prisma.module';
       envFilePath: '.env',
     }),
     PrismaModule,
+    R2Module,
     AuthModule,
     AdminModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
