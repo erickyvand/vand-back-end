@@ -9,6 +9,7 @@ import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { R2Module } from './r2/r2.module';
 import { MediaModule } from './media/media.module';
+import { MenyeshaModule } from './products/menyesha/menyesha.module';
 
 /**
  * Consumer objects
@@ -30,6 +31,7 @@ import { MediaModule } from './media/media.module';
     AuthModule,
     AdminModule,
     MediaModule,
+    MenyeshaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

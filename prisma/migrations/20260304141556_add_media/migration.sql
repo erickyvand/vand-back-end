@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Content"."ArticleStatus" AS ENUM ('DRAFT', 'IN_REVIEW', 'PUBLISHED', 'REJECTED', 'ARCHIVED');
+CREATE TYPE "Content"."ArticleStatus" AS ENUM ('Draft', 'InReview', 'Published', 'Rejected', 'Archived');
 
 -- CreateTable
 CREATE TABLE "Content"."Articles" (
@@ -10,7 +10,7 @@ CREATE TABLE "Content"."Articles" (
     "content" JSONB NOT NULL,
     "thumbnailId" TEXT,
     "language" "Authentication"."Language" NOT NULL,
-    "status" "Content"."ArticleStatus" NOT NULL DEFAULT 'DRAFT',
+    "status" "Content"."ArticleStatus" NOT NULL DEFAULT 'Draft',
     "publishedAt" TIMESTAMP(3),
     "viewCount" INTEGER NOT NULL DEFAULT 0,
     "categoryId" TEXT NOT NULL,

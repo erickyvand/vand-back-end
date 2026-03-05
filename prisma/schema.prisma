@@ -120,41 +120,29 @@ model ExternalProfile {
 }
 
 model Category {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
+  slug        String
+  language    Language
   name        String
-  slug        String    @unique
   description String?
   image       String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  translations CategoryTranslation[]
-  articles     Article[]
+  articles Article[]
 
+  @@unique([slug, language])
   @@map("Categories")
   @@schema("Content")
 }
 
-model CategoryTranslation {
-  id          String   @id @default(cuid())
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
-  language    Language
-  name        String
-  description String?
-
-  @@unique([categoryId, language])
-  @@map("CategoryTranslations")
-  @@schema("Content")
-}
-
 enum ArticleStatus {
-  DRAFT
-  IN_REVIEW
-  PUBLISHED
-  REJECTED
-  ARCHIVED
+  Draft
+  InReview
+  Published
+  Rejected
+  Archived
 
   @@schema("Content")
 }
@@ -168,7 +156,7 @@ model Article {
   thumbnailId String?
   thumbnail   Media?          @relation(fields: [thumbnailId], references: [id])
   language    Language
-  status      ArticleStatus @default(DRAFT)
+  status      ArticleStatus @default(Draft)
   publishedAt DateTime?
   viewCount   Int           @default(0)
 
