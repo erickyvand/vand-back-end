@@ -7,7 +7,7 @@ import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import AppModule from './app.module';
-import { NODE_ENV, PORT } from './common/constant.common';
+import { NODE_ENV, PORT, corsOptions } from './common/constant.common';
 import HttpExceptionFilter from './filters/http.exception.filter';
 
 /**
@@ -16,7 +16,7 @@ import HttpExceptionFilter from './filters/http.exception.filter';
  */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-
+  app.enableCors(corsOptions);
   const config = new DocumentBuilder()
     .setTitle('Vand API')
     .setDescription('API documentation for Vand application')
