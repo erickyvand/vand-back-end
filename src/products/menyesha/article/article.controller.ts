@@ -27,6 +27,7 @@ import ArticleService from './article.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { QueryArticleDto, CursorQueryArticleDto } from './dto/query-article.dto';
+import { ArticleTagsDto } from './dto/article-tags.dto';
 
 @Controller('api/menyesha/articles')
 @ApiTags('Menyesha - Articles')
@@ -121,6 +122,49 @@ class ArticleController {
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article updated successfully',
+      res,
+      result,
+    );
+  }
+
+  @Post(':id/tags')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('reporter', 'editor', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add tags to an article' })
+  @ApiResponse({ status: 200, description: 'Tags added successfully' })
+  @ApiResponse({ status: 404, description: 'Article or tags not found' })
+  @ApiResponse({ status: 409, description: 'Tags already associated' })
+  async addTags(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Body() body: ArticleTagsDto,
+  ) {
+    const result = await this.articleService.addTags(id, body.tagIds);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Tags added successfully',
+      res,
+      result,
+    );
+  }
+
+  @Delete(':id/tags')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('reporter', 'editor', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove tags from an article' })
+  @ApiResponse({ status: 200, description: 'Tags removed successfully' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async removeTags(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Body() body: ArticleTagsDto,
+  ) {
+    const result = await this.articleService.removeTags(id, body.tagIds);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Tags removed successfully',
       res,
       result,
     );

@@ -18,6 +18,11 @@ const ARTICLE_INCLUDE = {
     },
   },
   thumbnail: true,
+  tags: {
+    include: {
+      tag: true,
+    },
+  },
 };
 
 @Injectable()
@@ -63,6 +68,18 @@ class ArticleService {
       }
     }
 
+    if (data.tagIds?.length) {
+      const tags = await this.prismaService.tag.findMany({
+        where: { id: { in: data.tagIds } },
+      });
+      if (tags.length !== data.tagIds.length) {
+        throw new HttpException(
+          'One or more tags not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+    }
+
     const slug = this.generateSlug(data.title);
 
     try {
@@ -77,6 +94,11 @@ class ArticleService {
           status: 'Draft',
           categoryId: data.categoryId,
           authorId,
+          ...(data.tagIds?.length && {
+            tags: {
+              create: data.tagIds.map((tagId) => ({ tagId })),
+            },
+          }),
         },
         include: ARTICLE_INCLUDE,
       });
@@ -164,7 +186,8 @@ class ArticleService {
       );
     }
 
-    const updateData: any = { ...data };
+    const { tagIds, ...rest } = data;
+    const updateData: any = { ...rest };
 
     if (data.title && data.title !== article.title) {
       updateData.slug = this.generateSlug(data.title);
@@ -209,6 +232,26 @@ class ArticleService {
       }
     }
 
+    if (tagIds) {
+      if (tagIds.length) {
+        const tags = await this.prismaService.tag.findMany({
+          where: { id: { in: tagIds } },
+        });
+        if (tags.length !== tagIds.length) {
+          throw new HttpException(
+            'One or more tags not found',
+            HttpStatus.NOT_FOUND,
+          );
+        }
+      }
+      updateData.tags = {
+        deleteMany: {},
+        ...(tagIds.length && {
+          create: tagIds.map((tagId) => ({ tagId })),
+        }),
+      };
+    }
+
     const updated = await this.prismaService.article.update({
       where: { id },
       data: updateData,
@@ -216,6 +259,73 @@ class ArticleService {
     });
 
     logger.handleInfoLog(`Article updated: ${id}`);
+    return updated;
+  }
+
+  async addTags(id: string, tagIds: string[]) {
+    const article = await this.prismaService.article.findFirst({
+      where: { id, deletedAt: null },
+      include: { tags: true },
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    const tags = await this.prismaService.tag.findMany({
+      where: { id: { in: tagIds } },
+    });
+
+    if (tags.length !== tagIds.length) {
+      throw new HttpException('One or more tags not found', HttpStatus.NOT_FOUND);
+    }
+
+    const existingTagIds = article.tags.map((t) => t.tagId);
+    const newTagIds = tagIds.filter((tagId) => !existingTagIds.includes(tagId));
+
+    if (newTagIds.length === 0) {
+      throw new HttpException(
+        'All tags are already associated with this article',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const updated = await this.prismaService.article.update({
+      where: { id },
+      data: {
+        tags: {
+          create: newTagIds.map((tagId) => ({ tagId })),
+        },
+      },
+      include: ARTICLE_INCLUDE,
+    });
+
+    logger.handleInfoLog(`Tags added to article: ${id}`);
+    return updated;
+  }
+
+  async removeTags(id: string, tagIds: string[]) {
+    const article = await this.prismaService.article.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.prismaService.articleTag.deleteMany({
+      where: {
+        articleId: id,
+        tagId: { in: tagIds },
+      },
+    });
+
+    const updated = await this.prismaService.article.findUnique({
+      where: { id },
+      include: ARTICLE_INCLUDE,
+    });
+
+    logger.handleInfoLog(`Tags removed from article: ${id}`);
     return updated;
   }
 

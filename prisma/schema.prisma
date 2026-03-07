@@ -169,7 +169,33 @@ model Article {
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
 
+  tags        ArticleTag[]
+
   @@map("Articles")
+  @@schema("Content")
+}
+
+model Tag {
+  id       String       @id @default(cuid())
+  name     String
+  slug     String
+  language Language
+  articles ArticleTag[]
+
+  @@unique([slug, language])
+  @@unique([name, language])
+  @@map("Tags")
+  @@schema("Content")
+}
+
+model ArticleTag {
+  articleId String
+  tagId     String
+  article   Article @relation(fields: [articleId], references: [id])
+  tag       Tag     @relation(fields: [tagId], references: [id])
+
+  @@id([articleId, tagId])
+  @@map("ArticleTags")
   @@schema("Content")
 }
 

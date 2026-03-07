@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsIn } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsIn,
+  IsArray,
+} from 'class-validator';
 
 export class CreateArticleDto {
   @ApiProperty({ example: 'Breaking News: Major Event Unfolds' })
@@ -41,4 +47,13 @@ export class CreateArticleDto {
   @IsNotEmpty()
   @IsString()
   categoryId!: string;
+
+  @ApiPropertyOptional({
+    example: ['clxxxxxxxxxxxxxxxxx'],
+    description: 'Array of tag IDs to associate with the article',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tagIds?: string[];
 }
