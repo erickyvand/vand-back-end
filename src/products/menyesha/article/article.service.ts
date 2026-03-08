@@ -29,15 +29,38 @@ const ARTICLE_INCLUDE = {
 class ArticleService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  private generateSlug(title: string): string {
-    const base = title
+  private toSlug(text: string): string {
+    return text
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim();
-    const suffix = Date.now().toString(36);
-    return `${base}-${suffix}`;
+  }
+
+  private async generateSlug(title: string): Promise<string> {
+    const base = this.toSlug(title);
+
+    const existing = await this.prismaService.article.findFirst({
+      where: { slug: base },
+    });
+
+    if (!existing) return base;
+
+    const similar = await this.prismaService.article.findMany({
+      where: { slug: { startsWith: `${base}-` } },
+      select: { slug: true },
+    });
+
+    const numbers = similar
+      .map((a) => {
+        const suffix = a.slug.slice(base.length + 1);
+        return /^\d+$/.test(suffix) ? parseInt(suffix, 10) : 0;
+      })
+      .filter((n) => n > 0);
+
+    const next = numbers.length > 0 ? Math.max(...numbers) + 1 : 2;
+    return `${base}-${next}`;
   }
 
   async create(data: CreateArticleDto, authorId: string) {
@@ -80,7 +103,7 @@ class ArticleService {
       }
     }
 
-    const slug = this.generateSlug(data.title);
+    const slug = await this.generateSlug(data.title);
 
     try {
       const article = await this.prismaService.article.create({
@@ -105,9 +128,19 @@ class ArticleService {
 
       logger.handleInfoLog(`Article created: ${article.id} by ${authorId}`);
       return article;
-    } catch (error) {
-      const err = error as Error;
-      logger.handleErrorLog(`Article creation failed: ${err.message}`);
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+
+      logger.handleErrorLog(`Article creation failed: ${error.message}`);
+
+      if (error.code === 'P2003') {
+        const field = error.meta?.field_name || 'unknown';
+        throw new HttpException(
+          `Referenced record not found for field: ${field}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       throw new HttpException(
         'Failed to create article',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -115,11 +148,12 @@ class ArticleService {
     }
   }
 
-  private buildWhere(filters: { status?: string; categoryId?: string; authorId?: string }) {
+  private buildWhere(filters: { status?: string; categoryId?: string; authorId?: string; language?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.authorId) where.authorId = filters.authorId;
+    if (filters.language) where.language = filters.language as Language;
     return where;
   }
 
@@ -148,7 +182,7 @@ class ArticleService {
     const items = await this.prismaService.article.findMany({
       where,
       ...CursorPagination.query(cursor, limit),
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: ARTICLE_INCLUDE,
     });
 
@@ -159,6 +193,19 @@ class ArticleService {
   async findOne(id: string) {
     const article = await this.prismaService.article.findFirst({
       where: { id, deletedAt: null },
+      include: ARTICLE_INCLUDE,
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    return article;
+  }
+
+  async findBySlug(slug: string) {
+    const article = await this.prismaService.article.findFirst({
+      where: { slug, deletedAt: null },
       include: ARTICLE_INCLUDE,
     });
 
@@ -190,7 +237,7 @@ class ArticleService {
     const updateData: any = { ...rest };
 
     if (data.title && data.title !== article.title) {
-      updateData.slug = this.generateSlug(data.title);
+      updateData.slug = await this.generateSlug(data.title);
     }
 
     if (data.language) {

@@ -89,6 +89,20 @@ class ArticleController {
     );
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get a single article by slug (SEO-friendly)' })
+  @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async findBySlug(@Res() res: Response, @Param('slug') slug: string) {
+    const result = await this.articleService.findBySlug(slug);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Article retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single article by ID' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
