@@ -258,11 +258,19 @@ class ArticleService {
     }
 
     const roleName = user.internalProfile.role.name;
-    if (roleName === 'reporter' && article.authorId !== user.internalProfile.id) {
-      throw new HttpException(
-        'You can only edit your own articles',
-        HttpStatus.FORBIDDEN,
-      );
+    if (roleName === 'reporter') {
+      if (article.authorId !== user.internalProfile.id) {
+        throw new HttpException(
+          'You can only edit your own articles',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      if (article.status === 'InReview') {
+        throw new HttpException(
+          'Cannot edit an article that is in review',
+          HttpStatus.FORBIDDEN,
+        );
+      }
     }
 
     const { tagIds, featuredType, ...rest } = data;
