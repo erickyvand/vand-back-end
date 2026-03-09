@@ -89,6 +89,22 @@ class ArticleController {
     );
   }
 
+  @Get('trending')
+  @ApiOperation({ summary: 'List trending articles by view count' })
+  @ApiResponse({ status: 200, description: 'Trending articles retrieved successfully' })
+  async trending(
+    @Res() res: Response,
+    @Query() query: CursorQueryArticleDto,
+  ) {
+    const result = await this.articleService.trending(query);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Trending articles retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get a single article by slug (SEO-friendly)' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })

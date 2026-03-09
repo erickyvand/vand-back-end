@@ -11,4 +11,13 @@ export class UpdateArticleDto extends PartialType(CreateArticleDto) {
   @IsOptional()
   @IsIn(['Draft', 'InReview', 'Published', 'Rejected', 'Archived'])
   status?: string;
+
+  @ApiPropertyOptional({
+    example: 'Hero',
+    enum: ['Hero', 'Secondary', 'Spotlight'],
+    description: 'Set to null to unfeature',
+  })
+  @IsOptional()
+  @IsIn(['Hero', 'Secondary', 'Spotlight', null])
+  featuredType?: string | null;
 }

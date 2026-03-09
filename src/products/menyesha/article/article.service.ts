@@ -6,7 +6,7 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { QueryArticleDto, CursorQueryArticleDto } from './dto/query-article.dto';
 import { OffsetPagination } from '../../../common/pagination';
 import { CursorPagination } from '../../../common/pagination';
-import { Language, ArticleStatus } from '@prisma/client';
+import { Language, ArticleStatus, FeaturedType } from '@prisma/client';
 
 const logger = new LoggerService('article');
 
@@ -148,12 +148,13 @@ class ArticleService {
     }
   }
 
-  private buildWhere(filters: { status?: string; categoryId?: string; authorId?: string; language?: string }) {
+  private buildWhere(filters: { status?: string; categoryId?: string; authorId?: string; language?: string; featuredType?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.authorId) where.authorId = filters.authorId;
     if (filters.language) where.language = filters.language as Language;
+    if (filters.featuredType) where.featuredType = filters.featuredType as FeaturedType;
     return where;
   }
 
@@ -200,6 +201,11 @@ class ArticleService {
       throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
     }
 
+    this.prismaService.article.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+    }).catch(() => {});
+
     return article;
   }
 
@@ -212,6 +218,11 @@ class ArticleService {
     if (!article) {
       throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
     }
+
+    this.prismaService.article.update({
+      where: { id: article.id },
+      data: { viewCount: { increment: 1 } },
+    }).catch(() => {});
 
     return article;
   }
@@ -233,8 +244,33 @@ class ArticleService {
       );
     }
 
-    const { tagIds, ...rest } = data;
+    const { tagIds, featuredType, ...rest } = data;
     const updateData: any = { ...rest };
+
+    if (featuredType !== undefined) {
+      const effectiveStatus = data.status || article.status;
+      if (featuredType && effectiveStatus !== 'Published') {
+        throw new HttpException(
+          'Only published articles can be featured',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (featuredType) {
+        const maxSlots: Record<string, number> = { Hero: 1, Secondary: 4, Spotlight: 8 };
+        const max = maxSlots[featuredType];
+        const existingCount = await this.prismaService.article.count({
+          where: { featuredType: featuredType as FeaturedType, id: { not: id }, deletedAt: null },
+        });
+        if (existingCount >= max) {
+          throw new HttpException(
+            `${featuredType} section supports max ${max} article${max > 1 ? 's' : ''}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+      updateData.featuredType = featuredType ? featuredType as FeaturedType : null;
+      updateData.featuredAt = featuredType ? new Date() : null;
+    }
 
     if (data.title && data.title !== article.title) {
       updateData.slug = await this.generateSlug(data.title);
@@ -399,6 +435,22 @@ class ArticleService {
     });
 
     logger.handleInfoLog(`Article soft-deleted: ${id}`);
+  }
+
+  async trending(query: CursorQueryArticleDto) {
+    const { limit, cursor } = CursorPagination.parse(query);
+    const where: any = { deletedAt: null, status: 'Published' as ArticleStatus };
+    if (query.language) where.language = query.language as Language;
+
+    const items = await this.prismaService.article.findMany({
+      where,
+      ...CursorPagination.query(cursor, limit),
+      orderBy: [{ viewCount: 'desc' }, { id: 'desc' }],
+      include: ARTICLE_INCLUDE,
+    });
+
+    const { data: articles, meta } = CursorPagination.result(items, limit);
+    return { articles, meta };
   }
 }
 

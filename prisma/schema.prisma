@@ -147,6 +147,14 @@ enum ArticleStatus {
   @@schema("Content")
 }
 
+enum FeaturedType {
+  Hero
+  Secondary
+  Spotlight
+
+  @@schema("Content")
+}
+
 model Article {
   id          String        @id @default(cuid())
   title       String
@@ -158,7 +166,9 @@ model Article {
   language    Language
   status      ArticleStatus @default(Draft)
   publishedAt DateTime?
-  viewCount   Int           @default(0)
+  viewCount    Int           @default(0)
+  featuredType FeaturedType?
+  featuredAt   DateTime?
 
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])

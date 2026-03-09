@@ -25,6 +25,11 @@ export class QueryArticleDto extends OffsetPaginationDto {
   @IsOptional()
   @IsIn(['en', 'fr', 'rw'])
   language?: string;
+
+  @ApiPropertyOptional({ enum: ['Hero', 'Secondary', 'Spotlight'] })
+  @IsOptional()
+  @IsIn(['Hero', 'Secondary', 'Spotlight'])
+  featuredType?: string;
 }
 
 export class CursorQueryArticleDto extends CursorPaginationDto {
@@ -49,4 +54,9 @@ export class CursorQueryArticleDto extends CursorPaginationDto {
   @IsOptional()
   @IsIn(['en', 'fr', 'rw'])
   language?: string;
+
+  @ApiPropertyOptional({ enum: ['Hero', 'Secondary', 'Spotlight'] })
+  @IsOptional()
+  @IsIn(['Hero', 'Secondary', 'Spotlight'])
+  featuredType?: string;
 }
