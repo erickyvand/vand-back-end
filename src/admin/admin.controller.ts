@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpStatus, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import LoggerService from '../logger/logger.service';
 import { Request, Response } from 'express';
@@ -62,6 +62,41 @@ class AdminController {
       'Roles retrieved successfully',
       res,
       result,
+    );
+  }
+  @Patch(':id/deactivate')
+  @ApiOperation({ summary: 'Deactivate a user' })
+  @ApiResponse({ status: 200, description: 'User deactivated successfully' })
+  async deactivate(@Res() res: Response, @Param('id') id: string) {
+    await this.adminService.deactivateUser(id);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'User deactivated successfully',
+      res,
+    );
+  }
+
+  @Patch(':id/activate')
+  @ApiOperation({ summary: 'Activate a user' })
+  @ApiResponse({ status: 200, description: 'User activated successfully' })
+  async activate(@Res() res: Response, @Param('id') id: string) {
+    await this.adminService.activateUser(id);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'User activated successfully',
+      res,
+    );
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Soft delete a user' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  async softDelete(@Res() res: Response, @Param('id') id: string) {
+    await this.adminService.softDeleteUser(id);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'User deleted successfully',
+      res,
     );
   }
 }

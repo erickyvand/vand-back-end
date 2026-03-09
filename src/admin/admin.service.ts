@@ -135,6 +135,7 @@ class AdminService {
           phone: true,
           isActive: true,
           createdAt: true,
+          deletedAt: true,
           internalProfile: {
             select: {
               id: true,
@@ -150,6 +151,52 @@ class AdminService {
     ]);
 
     return { users, meta: OffsetPagination.meta(total, page, limit) };
+  }
+
+  private async findUserOrFail(id: string) {
+    const user = await this.prismaService.user.findFirst({
+      where: { id, userType: 'Internal' },
+    });
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    return user;
+  }
+
+  async deactivateUser(id: string) {
+    const user = await this.findUserOrFail(id);
+    if (!user.isActive) {
+      throw new HttpException('User is already deactivated', HttpStatus.BAD_REQUEST);
+    }
+    await this.prismaService.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async activateUser(id: string) {
+    const user = await this.findUserOrFail(id);
+    if (user.deletedAt) {
+      throw new HttpException('Cannot activate a deleted user', HttpStatus.BAD_REQUEST);
+    }
+    if (user.isActive) {
+      throw new HttpException('User is already active', HttpStatus.BAD_REQUEST);
+    }
+    await this.prismaService.user.update({
+      where: { id },
+      data: { isActive: true },
+    });
+  }
+
+  async softDeleteUser(id: string) {
+    const user = await this.findUserOrFail(id);
+    if (user.deletedAt) {
+      throw new HttpException('User is already deleted', HttpStatus.BAD_REQUEST);
+    }
+    await this.prismaService.user.update({
+      where: { id },
+      data: { isActive: false, deletedAt: new Date() },
+    });
   }
 
   async findRoles() {
