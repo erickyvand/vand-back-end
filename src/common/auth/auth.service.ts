@@ -146,6 +146,52 @@ class AuthService {
       throw new HttpException('Could not process refresh token', HttpStatus.UNAUTHORIZED);
     }
   }
+  async getMe(userId: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        slug: true,
+        email: true,
+        phone: true,
+        userType: true,
+        createdAt: true,
+        internalProfile: {
+          select: {
+            id: true,
+            role: true,
+            avatar: true,
+            bio: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const authorId = user.internalProfile?.id;
+    const stats = authorId
+      ? await this.prismaService.article.groupBy({
+          by: ['status'],
+          where: { authorId, deletedAt: null },
+          _count: true,
+        })
+      : [];
+
+    const articleStats = {
+      total: stats.reduce((sum, s) => sum + s._count, 0),
+      draft: stats.find((s) => s.status === 'Draft')?._count || 0,
+      published: stats.find((s) => s.status === 'Published')?._count || 0,
+      inReview: stats.find((s) => s.status === 'InReview')?._count || 0,
+      rejected: stats.find((s) => s.status === 'Rejected')?._count || 0,
+      archived: stats.find((s) => s.status === 'Archived')?._count || 0,
+    };
+
+    return { ...user, articleStats };
+  }
 }
 
 export default AuthService;

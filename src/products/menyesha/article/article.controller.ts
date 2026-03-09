@@ -105,12 +105,51 @@ class ArticleController {
     );
   }
 
+  @Get('author/:slug')
+  @ApiOperation({ summary: 'Get author profile by slug' })
+  @ApiResponse({ status: 200, description: 'Author profile retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Author not found' })
+  async findAuthorProfile(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+  ) {
+    const result = await this.articleService.findAuthorProfile(slug);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Author profile retrieved successfully',
+      res,
+      result,
+    );
+  }
+
+  @Get('author/:slug/articles')
+  @ApiOperation({ summary: 'Get articles by author slug' })
+  @ApiResponse({ status: 200, description: 'Author articles retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Author not found' })
+  async findAuthorArticles(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+    @Query() query: QueryArticleDto,
+  ) {
+    const result = await this.articleService.findAuthorArticles(slug, query);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Author articles retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get a single article by slug (SEO-friendly)' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Article not found' })
-  async findBySlug(@Res() res: Response, @Param('slug') slug: string) {
-    const result = await this.articleService.findBySlug(slug);
+  async findBySlug(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.articleService.findBySlug(slug, language);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article retrieved successfully',
@@ -123,8 +162,12 @@ class ArticleController {
   @ApiOperation({ summary: 'Get a single article by ID' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Article not found' })
-  async findOne(@Res() res: Response, @Param('id') id: string) {
-    const result = await this.articleService.findOne(id);
+  async findOne(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.articleService.findOne(id, language);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article retrieved successfully',

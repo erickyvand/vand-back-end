@@ -14,7 +14,7 @@ const ARTICLE_INCLUDE = {
   category: true,
   author: {
     include: {
-      user: { select: { fullName: true, email: true } },
+      user: { select: { fullName: true, email: true, slug: true } },
     },
   },
   thumbnail: true,
@@ -158,6 +158,23 @@ class ArticleService {
     return where;
   }
 
+  private validateStatusTransition(current: string, next: string) {
+    const allowed: Record<string, string[]> = {
+      Draft: ['Published', 'InReview'],
+      InReview: ['Published', 'Draft', 'Rejected'],
+      Published: ['Archived'],
+      Rejected: ['Draft', 'InReview'],
+      Archived: [],
+    };
+
+    if (!allowed[current]?.includes(next)) {
+      throw new HttpException(
+        `Cannot transition from ${current} to ${next}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async findAll(query: QueryArticleDto) {
     const { page, limit, skip } = OffsetPagination.parse(query);
     const where = this.buildWhere(query);
@@ -191,9 +208,11 @@ class ArticleService {
     return { articles, meta };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, language?: string) {
+    const where: any = { id, deletedAt: null };
+    if (language) where.language = language as Language;
     const article = await this.prismaService.article.findFirst({
-      where: { id, deletedAt: null },
+      where,
       include: ARTICLE_INCLUDE,
     });
 
@@ -209,9 +228,11 @@ class ArticleService {
     return article;
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, language?: string) {
+    const where: any = { slug, deletedAt: null };
+    if (language) where.language = language as Language;
     const article = await this.prismaService.article.findFirst({
-      where: { slug, deletedAt: null },
+      where,
       include: ARTICLE_INCLUDE,
     });
 
@@ -281,6 +302,7 @@ class ArticleService {
     }
 
     if (data.status) {
+      this.validateStatusTransition(article.status, data.status);
       updateData.status = data.status as ArticleStatus;
       if (data.status === 'Published' && !article.publishedAt) {
         updateData.publishedAt = new Date();
@@ -451,6 +473,57 @@ class ArticleService {
 
     const { data: articles, meta } = CursorPagination.result(items, limit);
     return { articles, meta };
+  }
+
+  private async findAuthorBySlug(slug: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        fullName: true,
+        slug: true,
+        email: true,
+        internalProfile: {
+          select: {
+            id: true,
+            avatar: true,
+            bio: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.internalProfile) {
+      throw new HttpException('Author not found', HttpStatus.NOT_FOUND);
+    }
+
+    return user;
+  }
+
+  async findAuthorProfile(slug: string) {
+    return this.findAuthorBySlug(slug);
+  }
+
+  async findAuthorArticles(slug: string, query: QueryArticleDto) {
+    const user = await this.findAuthorBySlug(slug);
+    const { page, limit, skip } = OffsetPagination.parse(query);
+    const where: any = { authorId: user.internalProfile!.id, deletedAt: null };
+    if (query.language) where.language = query.language as Language;
+    if (query.status) where.status = query.status as ArticleStatus;
+
+    const [articles, total] = await Promise.all([
+      this.prismaService.article.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { category: true, thumbnail: true, tags: { include: { tag: true } } },
+      }),
+      this.prismaService.article.count({ where }),
+    ]);
+
+    return { articles, meta: OffsetPagination.meta(total, page, limit) };
   }
 }
 

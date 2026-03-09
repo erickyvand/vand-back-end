@@ -21,4 +21,9 @@ export class CreateAdminDto {
       'Phone must be a valid Rwandan number (e.g. +250781234567 or 0781234567)',
   })
   phone!: string;
+
+  @ApiProperty({ example: 'cuid-of-role' })
+  @IsNotEmpty()
+  @IsString()
+  roleId!: string;
 }

@@ -1,6 +1,7 @@
-import { Body, Controller, HttpStatus, Post, Req, Res } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import JwtAuthGuard from './guards/jwt-auth.guard';
 import LoggerService from '../../logger/logger.service';
 import ResponseCommon from '../response.common';
 import AuthService from './auth.service';
@@ -55,6 +56,21 @@ class AuthController {
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Token refreshed successfully',
+      res,
+      result,
+    );
+  }
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  async getMe(@Res() res: Response, @Req() req: Request) {
+    const user = req.user as any;
+    const result = await this.authService.getMe(user.id);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Profile retrieved successfully',
       res,
       result,
     );
