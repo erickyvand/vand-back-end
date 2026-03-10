@@ -28,6 +28,7 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { QueryArticleDto, CursorQueryArticleDto } from './dto/query-article.dto';
 import { ArticleTagsDto } from './dto/article-tags.dto';
+import { BulkCreateTagDto } from '../tag/dto/bulk-create-tag.dto';
 
 @Controller('api/menyesha/articles')
 @ApiTags('Menyesha - Articles')
@@ -217,6 +218,27 @@ class ArticleController {
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Tags added successfully',
+      res,
+      result,
+    );
+  }
+
+  @Post(':id/tags/bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('reporter', 'editor', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk create tags and associate with article' })
+  @ApiResponse({ status: 201, description: 'Tags processed and associated successfully' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async bulkCreateTags(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Body() body: BulkCreateTagDto,
+  ) {
+    const result = await this.articleService.bulkCreateAndAssociateTags(id, body.tags);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.CREATED,
+      'Tags processed and associated successfully',
       res,
       result,
     );

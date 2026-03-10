@@ -187,15 +187,28 @@ model Article {
 }
 
 model Tag {
-  id       String       @id @default(cuid())
-  name     String
-  slug     String
-  language Language
-  articles ArticleTag[]
+  id           String           @id @default(cuid())
+  name         String           
+  slug         String           @unique
+  articles     ArticleTag[]
+  translations TagTranslation[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  @@unique([slug, language])
-  @@unique([name, language])
   @@map("Tags")
+  @@schema("Content")
+}
+
+model TagTranslation {
+  id       String   @id @default(cuid())
+  tagId    String
+  language Language
+  label    String
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, language])
+  @@unique([label, language])
+  @@map("TagTranslations")
   @@schema("Content")
 }
 

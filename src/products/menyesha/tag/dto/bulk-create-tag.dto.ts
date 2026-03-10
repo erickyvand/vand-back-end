@@ -1,27 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsNotEmpty,
-  IsString,
-  IsIn,
   IsArray,
+  IsString,
+  IsNotEmpty,
   ArrayMinSize,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TagTranslationDto } from './create-tag.dto';
 
-export class TagTranslationDto {
-  @ApiProperty({ example: 'Technology' })
-  @IsNotEmpty()
-  @IsString()
-  label!: string;
-
-  @ApiProperty({ example: 'en', enum: ['en', 'fr', 'rw'] })
-  @IsNotEmpty()
-  @IsIn(['en', 'fr', 'rw'], { message: 'Language must be one of: en, fr, rw' })
-  language!: string;
-}
-
-export class CreateTagDto {
+export class BulkTagItemDto {
   @ApiProperty({ example: 'Premier League', description: 'English name for the tag' })
   @IsNotEmpty()
   @IsString()
@@ -32,7 +20,6 @@ export class CreateTagDto {
     example: [
       { label: 'Technology', language: 'en' },
       { label: 'Technologie', language: 'fr' },
-      { label: 'Ikoranabuhanga', language: 'rw' },
     ],
   })
   @IsArray()
@@ -40,4 +27,16 @@ export class CreateTagDto {
   @ValidateNested({ each: true })
   @Type(() => TagTranslationDto)
   translations!: TagTranslationDto[];
+}
+
+export class BulkCreateTagDto {
+  @ApiProperty({
+    type: [BulkTagItemDto],
+    description: 'Array of tags to create and associate with the article',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => BulkTagItemDto)
+  tags!: BulkTagItemDto[];
 }

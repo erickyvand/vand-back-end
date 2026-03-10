@@ -62,12 +62,36 @@ class TagController {
     );
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a single tag by ID' })
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get a single tag by slug' })
+  @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
   @ApiResponse({ status: 200, description: 'Tag retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Tag not found' })
-  async findOne(@Res() res: Response, @Param('id') id: string) {
-    const result = await this.tagService.findOne(id);
+  async findBySlug(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.tagService.findBySlug(slug, language);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Tag retrieved successfully',
+      res,
+      result,
+    );
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a single tag by ID' })
+  @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
+  @ApiResponse({ status: 200, description: 'Tag retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Tag not found' })
+  async findOne(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.tagService.findOne(id, language);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Tag retrieved successfully',

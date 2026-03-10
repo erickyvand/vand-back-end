@@ -20,7 +20,14 @@ const ARTICLE_INCLUDE = {
   thumbnail: true,
   tags: {
     include: {
-      tag: true,
+      tag: {
+        include: {
+          translations: {
+            select: { id: true, language: true, label: true },
+            orderBy: { language: 'asc' as const },
+          },
+        },
+      },
     },
   },
 };
@@ -92,6 +99,9 @@ class ArticleService {
     }
 
     if (data.tagIds?.length) {
+      if (data.tagIds.length > 5) {
+        throw new HttpException('An article can have a maximum of 5 tags', HttpStatus.BAD_REQUEST);
+      }
       const tags = await this.prismaService.tag.findMany({
         where: { id: { in: data.tagIds } },
       });
@@ -251,6 +261,7 @@ class ArticleService {
   async update(id: string, data: UpdateArticleDto, user: any) {
     const article = await this.prismaService.article.findFirst({
       where: { id, deletedAt: null },
+      include: { tags: true },
     });
 
     if (!article) {
@@ -311,6 +322,12 @@ class ArticleService {
 
     if (data.status) {
       this.validateStatusTransition(article.status, data.status);
+      if (data.status === 'InReview' && article.tags.length === 0) {
+        throw new HttpException(
+          'Article must have at least one tag before submitting for review',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       updateData.status = data.status as ArticleStatus;
       if (data.status === 'Published' && !article.publishedAt) {
         updateData.publishedAt = new Date();
@@ -346,6 +363,9 @@ class ArticleService {
     }
 
     if (tagIds) {
+      if (tagIds.length > 5) {
+        throw new HttpException('An article can have a maximum of 5 tags', HttpStatus.BAD_REQUEST);
+      }
       if (tagIds.length) {
         const tags = await this.prismaService.tag.findMany({
           where: { id: { in: tagIds } },
@@ -396,6 +416,13 @@ class ArticleService {
     const existingTagIds = article.tags.map((t) => t.tagId);
     const newTagIds = tagIds.filter((tagId) => !existingTagIds.includes(tagId));
 
+    if (existingTagIds.length + newTagIds.length > 5) {
+      throw new HttpException(
+        `An article can have a maximum of 5 tags (currently has ${existingTagIds.length})`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     if (newTagIds.length === 0) {
       throw new HttpException(
         'All tags are already associated with this article',
@@ -440,6 +467,95 @@ class ArticleService {
 
     logger.handleInfoLog(`Tags removed from article: ${id}`);
     return updated;
+  }
+
+  private generateTagSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  }
+
+  async bulkCreateAndAssociateTags(
+    articleId: string,
+    tags: { name: string; translations: { label: string; language: string }[] }[],
+  ) {
+    const article = await this.prismaService.article.findFirst({
+      where: { id: articleId, deletedAt: null },
+      include: { tags: true },
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    const tagIds: string[] = [];
+    const created: any[] = [];
+    const skipped: string[] = [];
+
+    for (const tag of tags) {
+      const slug = this.generateTagSlug(tag.name);
+
+      const existing = await this.prismaService.tag.findUnique({
+        where: { slug },
+        include: { translations: true },
+      });
+
+      if (existing) {
+        tagIds.push(existing.id);
+        skipped.push(slug);
+      } else {
+        const newTag = await this.prismaService.tag.create({
+          data: {
+            name: tag.name,
+            slug,
+            translations: {
+              create: tag.translations.map((t) => ({
+                label: t.label,
+                language: t.language as Language,
+              })),
+            },
+          },
+          include: {
+            translations: {
+              select: { id: true, language: true, label: true },
+            },
+          },
+        });
+        tagIds.push(newTag.id);
+        created.push(newTag);
+      }
+    }
+
+    const existingTagIds = article.tags.map((t) => t.tagId);
+    const newTagIds = tagIds.filter((id) => !existingTagIds.includes(id));
+
+    if (existingTagIds.length + newTagIds.length > 5) {
+      throw new HttpException(
+        `An article can have a maximum of 5 tags (currently has ${existingTagIds.length})`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (newTagIds.length > 0) {
+      await this.prismaService.article.update({
+        where: { id: articleId },
+        data: {
+          tags: {
+            create: newTagIds.map((tagId) => ({ tagId })),
+          },
+        },
+      });
+    }
+
+    const updated = await this.prismaService.article.findUnique({
+      where: { id: articleId },
+      include: ARTICLE_INCLUDE,
+    });
+
+    return { article: updated, created, skipped };
   }
 
   async softDelete(id: string, user: any) {
@@ -526,7 +642,7 @@ class ArticleService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { category: true, thumbnail: true, tags: { include: { tag: true } } },
+        include: { category: true, thumbnail: true, tags: { include: { tag: { include: { translations: { select: { id: true, language: true, label: true }, orderBy: { language: 'asc' as const } } } } } } },
       }),
       this.prismaService.article.count({ where }),
     ]);

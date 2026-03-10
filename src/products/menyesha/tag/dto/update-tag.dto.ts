@@ -1,14 +1,21 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { TagTranslationDto } from './create-tag.dto';
 
 export class UpdateTagDto {
-  @ApiPropertyOptional({ example: 'Technology' })
+  @ApiPropertyOptional({ example: 'Premier League' })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ example: 'en', enum: ['en', 'fr', 'rw'] })
+  @ApiPropertyOptional({
+    type: [TagTranslationDto],
+    description: 'Replaces all translations',
+  })
   @IsOptional()
-  @IsIn(['en', 'fr', 'rw'], { message: 'Language must be one of: en, fr, rw' })
-  language?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TagTranslationDto)
+  translations?: TagTranslationDto[];
 }
