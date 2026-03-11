@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { uniq, find, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
@@ -16,12 +17,7 @@ class TagService {
   constructor(private readonly prismaService: PrismaService) {}
 
   private toSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+    return kebabCase(text);
   }
 
   async create(data: CreateTagDto) {
@@ -35,7 +31,7 @@ class TagService {
     }
 
     const languages = data.translations.map((t) => t.language);
-    if (new Set(languages).size !== languages.length) {
+    if (uniq(languages).length !== languages.length) {
       throw new HttpException('Duplicate languages in translations', HttpStatus.BAD_REQUEST);
     }
 
@@ -68,7 +64,7 @@ class TagService {
 
   private resolveLabel(tag: { name: string; translations: { language: string; label: string }[] }, language?: string) {
     if (!language) return tag;
-    const translation = tag.translations.find((t) => t.language === language);
+    const translation = find(tag.translations, ['language', language]);
     return { ...tag, label: translation ? translation.label : tag.name };
   }
 
@@ -130,7 +126,7 @@ class TagService {
 
     if (data.translations) {
       const languages = data.translations.map((t) => t.language);
-      if (new Set(languages).size !== languages.length) {
+      if (uniq(languages).length !== languages.length) {
         throw new HttpException('Duplicate languages in translations', HttpStatus.BAD_REQUEST);
       }
 

@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { sumBy, find } from 'lodash';
 import PrismaService from '../../prisma/prisma.service';
 import Argon from '../../argon/argon';
 import LoggerService from '../../logger/logger.service';
@@ -182,12 +183,12 @@ class AuthService {
       : [];
 
     const articleStats = {
-      total: stats.reduce((sum, s) => sum + s._count, 0),
-      draft: stats.find((s) => s.status === 'Draft')?._count || 0,
-      published: stats.find((s) => s.status === 'Published')?._count || 0,
-      inReview: stats.find((s) => s.status === 'InReview')?._count || 0,
-      rejected: stats.find((s) => s.status === 'Rejected')?._count || 0,
-      archived: stats.find((s) => s.status === 'Archived')?._count || 0,
+      total: sumBy(stats, '_count'),
+      draft: find(stats, ['status', 'Draft'])?._count || 0,
+      published: find(stats, ['status', 'Published'])?._count || 0,
+      inReview: find(stats, ['status', 'InReview'])?._count || 0,
+      rejected: find(stats, ['status', 'Rejected'])?._count || 0,
+      archived: find(stats, ['status', 'Archived'])?._count || 0,
     };
 
     return { ...user, articleStats };

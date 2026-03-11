@@ -184,8 +184,9 @@ class ArticleController {
     @Res() res: Response,
     @Param('slug') slug: string,
     @Query('language') language?: string,
+    @Query('subCategorySlug') subCategorySlug?: string,
   ) {
-    const result = await this.articleService.findBySlug(slug, language);
+    const result = await this.articleService.findBySlug(slug, language, subCategorySlug);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article retrieved successfully',

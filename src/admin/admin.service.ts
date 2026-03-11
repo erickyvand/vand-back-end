@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { kebabCase } from 'lodash';
 import Argon from '../argon/argon';
 import PrismaService from '../prisma/prisma.service';
 import { CreateAdminDto } from './dto/create.dto';
@@ -12,12 +13,7 @@ class AdminService {
   constructor(private readonly prismaService: PrismaService) {}
 
   private toSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+    return kebabCase(text);
   }
 
   private async generateUserSlug(fullName: string): Promise<string> {

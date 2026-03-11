@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { uniq, compact, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -10,18 +11,12 @@ class CategoryService {
   constructor(private readonly prismaService: PrismaService) {}
 
   private generateSlug(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+    return kebabCase(name);
   }
 
   async create(data: CreateCategoryDto) {
     const languages = data.translations.map((t) => t.language);
-    const uniqueLanguages = new Set(languages);
-    if (uniqueLanguages.size !== languages.length) {
+    if (uniq(languages).length !== languages.length) {
       throw new HttpException(
         'Duplicate languages in translations',
         HttpStatus.BAD_REQUEST,
@@ -89,7 +84,7 @@ class CategoryService {
       orderBy: { name: 'asc' },
     });
 
-    const parentGroupIds = [...new Set(parents.map((p) => p.groupId).filter(Boolean))] as string[];
+    const parentGroupIds = uniq(compact(parents.map((p) => p.groupId))) as string[];
 
     const children = parentGroupIds.length
       ? await this.prismaService.category.findMany({

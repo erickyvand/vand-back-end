@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { get } from 'lodash';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
@@ -25,14 +26,14 @@ class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user?.internalProfile?.role?.name) {
+    if (!get(user, 'internalProfile.role.name')) {
       throw new HttpException(
         'Access denied: insufficient permissions',
         HttpStatus.FORBIDDEN,
       );
     }
 
-    const hasRole = requiredRoles.includes(user.internalProfile.role.name);
+    const hasRole = requiredRoles.includes(get(user, 'internalProfile.role.name'));
 
     if (!hasRole) {
       throw new HttpException(

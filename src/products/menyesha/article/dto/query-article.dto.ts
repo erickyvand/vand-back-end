@@ -16,10 +16,15 @@ export class QueryArticleDto extends OffsetPaginationDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ example: 'sports', description: 'Filter by category slug' })
+  @ApiPropertyOptional({ example: 'sport', description: 'Filter by parent category slug (includes all subcategories)' })
   @IsOptional()
   @IsString()
   categorySlug?: string;
+
+  @ApiPropertyOptional({ example: 'africa', description: 'Filter by subcategory slug' })
+  @IsOptional()
+  @IsString()
+  subCategorySlug?: string;
 
   @ApiPropertyOptional({ example: 'clxxxxxxxxxxxxxxxxx' })
   @IsOptional()
@@ -50,10 +55,15 @@ export class CursorQueryArticleDto extends CursorPaginationDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ example: 'sports', description: 'Filter by category slug' })
+  @ApiPropertyOptional({ example: 'sport', description: 'Filter by parent category slug (includes all subcategories)' })
   @IsOptional()
   @IsString()
   categorySlug?: string;
+
+  @ApiPropertyOptional({ example: 'africa', description: 'Filter by subcategory slug' })
+  @IsOptional()
+  @IsString()
+  subCategorySlug?: string;
 
   @ApiPropertyOptional({ example: 'clxxxxxxxxxxxxxxxxx' })
   @IsOptional()

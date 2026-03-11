@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { uniq, compact, difference, map, groupBy, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import LoggerService from '../../../logger/logger.service';
 import { CreateArticleDto } from './dto/create-article.dto';
@@ -36,13 +37,28 @@ const ARTICLE_INCLUDE = {
 class ArticleService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  private async enrichWithParentCategory(articles: any[]) {
+    const parentGroupIds = uniq(compact(articles.map((a) => a.category?.parentGroupId))) as string[];
+
+    if (parentGroupIds.length === 0) return articles;
+
+    const parents = await this.prismaService.category.findMany({
+      where: { groupId: { in: parentGroupIds } },
+    });
+
+    const grouped = groupBy(parents, 'groupId');
+
+    return articles.map((article) => {
+      const pgId = article.category?.parentGroupId;
+      if (!pgId) return { ...article, category: { ...article.category, parent: null } };
+      const siblings = grouped[pgId] || [];
+      const parent = siblings.find((p) => p.language === article.category.language) || siblings[0] || null;
+      return { ...article, category: { ...article.category, parent } };
+    });
+  }
+
   private toSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+    return kebabCase(text);
   }
 
   private async generateSlug(title: string): Promise<string> {
@@ -163,7 +179,7 @@ class ArticleService {
     }
   }
 
-  private async buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
+  private async buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; subCategorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
@@ -185,6 +201,24 @@ class ArticleService {
           select: { id: true },
         });
         where.categoryId = { in: allCategories.map((c) => c.id) };
+      } else {
+        where.categoryId = 'none';
+      }
+    }
+    if (filters.subCategorySlug) {
+      const subCategory = await this.prismaService.category.findFirst({
+        where: {
+          slug: filters.subCategorySlug,
+          parentGroupId: { not: null },
+          ...(filters.language ? { language: filters.language as Language } : {}),
+        },
+      });
+      if (subCategory) {
+        const subCategoryIds = await this.prismaService.category.findMany({
+          where: { groupId: subCategory.groupId },
+          select: { id: true },
+        });
+        where.categoryId = { in: subCategoryIds.map((c) => c.id) };
       } else {
         where.categoryId = 'none';
       }
@@ -227,7 +261,8 @@ class ArticleService {
       this.prismaService.article.count({ where }),
     ]);
 
-    return { articles, meta: OffsetPagination.meta(total, page, limit) };
+    const enriched = await this.enrichWithParentCategory(articles);
+    return { articles: enriched, meta: OffsetPagination.meta(total, page, limit) };
   }
 
   async findAllCursor(query: CursorQueryArticleDto) {
@@ -242,7 +277,8 @@ class ArticleService {
     });
 
     const { data: articles, meta } = CursorPagination.result(items, limit);
-    return { articles, meta };
+    const enriched = await this.enrichWithParentCategory(articles);
+    return { articles: enriched, meta };
   }
 
   async findOne(id: string, language?: string) {
@@ -262,10 +298,11 @@ class ArticleService {
       data: { viewCount: { increment: 1 } },
     }).catch(() => {});
 
-    return article;
+    const [enriched] = await this.enrichWithParentCategory([article]);
+    return enriched;
   }
 
-  async findBySlug(slug: string, language?: string) {
+  async findBySlug(slug: string, language?: string, subCategorySlug?: string) {
     const where: any = { slug, deletedAt: null };
     if (language) where.language = language as Language;
     const article = await this.prismaService.article.findFirst({
@@ -277,12 +314,26 @@ class ArticleService {
       throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
     }
 
+    if (subCategorySlug) {
+      const subCategory = await this.prismaService.category.findFirst({
+        where: {
+          slug: subCategorySlug,
+          parentGroupId: { not: null },
+          ...(language ? { language: language as Language } : {}),
+        },
+      });
+      if (!subCategory || article.category?.groupId !== subCategory.groupId) {
+        throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+      }
+    }
+
     this.prismaService.article.update({
       where: { id: article.id },
       data: { viewCount: { increment: 1 } },
     }).catch(() => {});
 
-    return article;
+    const [enriched] = await this.enrichWithParentCategory([article]);
+    return enriched;
   }
 
   async update(id: string, data: UpdateArticleDto, user: any) {
@@ -455,8 +506,8 @@ class ArticleService {
       throw new HttpException('One or more tags not found', HttpStatus.NOT_FOUND);
     }
 
-    const existingTagIds = article.tags.map((t) => t.tagId);
-    const newTagIds = tagIds.filter((tagId) => !existingTagIds.includes(tagId));
+    const existingTagIds = map(article.tags, 'tagId');
+    const newTagIds = difference(tagIds, existingTagIds);
 
     if (existingTagIds.length + newTagIds.length > 5) {
       throw new HttpException(
@@ -512,12 +563,7 @@ class ArticleService {
   }
 
   private generateTagSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+    return kebabCase(text);
   }
 
   async bulkCreateAndAssociateTags(
@@ -571,8 +617,8 @@ class ArticleService {
       }
     }
 
-    const existingTagIds = article.tags.map((t) => t.tagId);
-    const newTagIds = tagIds.filter((id) => !existingTagIds.includes(id));
+    const existingTagIds = map(article.tags, 'tagId');
+    const newTagIds = difference(tagIds, existingTagIds);
 
     if (existingTagIds.length + newTagIds.length > 5) {
       throw new HttpException(
@@ -634,11 +680,12 @@ class ArticleService {
     };
     if (language) where.language = language as Language;
 
-    return this.prismaService.article.findMany({
+    const breaking = await this.prismaService.article.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: ARTICLE_INCLUDE,
     });
+    return this.enrichWithParentCategory(breaking);
   }
 
   async getRelatedArticles(slug: string, take = 4) {
@@ -651,7 +698,7 @@ class ArticleService {
       throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
     }
 
-    const tagIds = article.tags.map((t) => t.tagId);
+    const tagIds = map(article.tags, 'tagId');
 
     if (tagIds.length > 0) {
       const byTags = await this.prismaService.article.findMany({
@@ -666,10 +713,10 @@ class ArticleService {
         include: ARTICLE_INCLUDE,
       });
 
-      if (byTags.length >= 2) return byTags;
+      if (byTags.length >= 2) return this.enrichWithParentCategory(byTags);
     }
 
-    return this.prismaService.article.findMany({
+    const byCat = await this.prismaService.article.findMany({
       where: {
         status: 'Published' as ArticleStatus,
         deletedAt: null,
@@ -680,6 +727,7 @@ class ArticleService {
       take,
       include: ARTICLE_INCLUDE,
     });
+    return this.enrichWithParentCategory(byCat);
   }
 
   async trending(query: CursorQueryArticleDto) {
@@ -695,7 +743,8 @@ class ArticleService {
     });
 
     const { data: articles, meta } = CursorPagination.result(items, limit);
-    return { articles, meta };
+    const enriched = await this.enrichWithParentCategory(articles);
+    return { articles: enriched, meta };
   }
 
   private async findAuthorBySlug(slug: string) {
