@@ -63,6 +63,25 @@ class CategoryController {
     );
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get a category by slug' })
+  @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
+  @ApiResponse({ status: 200, description: 'Category retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  async findBySlug(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.categoryService.findBySlug(slug, language);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Category retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single category by ID' })
   @ApiResponse({ status: 200, description: 'Category retrieved successfully' })

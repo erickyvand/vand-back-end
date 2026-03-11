@@ -7,6 +7,11 @@ export class UpdateCategoryDto {
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional({ example: 'sport-group-id', description: 'Parent category groupId (null to make top-level)' })
+  @IsOptional()
+  @IsString()
+  parentGroupId?: string | null;
+
   @ApiPropertyOptional({ example: 'Articles about technology' })
   @IsOptional()
   @IsString()

@@ -33,7 +33,10 @@ async function bootstrap(): Promise<void> {
     ),
   });
 
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }));
   app.use(helmet());
 
   app.useGlobalFilters(new HttpExceptionFilter());

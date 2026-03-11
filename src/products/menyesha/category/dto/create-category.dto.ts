@@ -33,6 +33,14 @@ export class CategoryTranslationDto {
 }
 
 export class CreateCategoryDto {
+  @ApiPropertyOptional({
+    example: 'sport-group-id',
+    description: 'Parent category groupId (for subcategories)',
+  })
+  @IsOptional()
+  @IsString()
+  parentGroupId?: string;
+
   @ApiProperty({
     type: [CategoryTranslationDto],
     example: [

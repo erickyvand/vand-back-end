@@ -163,11 +163,32 @@ class ArticleService {
     }
   }
 
-  private buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
+  private async buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
-    if (filters.categorySlug) where.category = { slug: filters.categorySlug };
+    if (filters.categorySlug) {
+      const category = await this.prismaService.category.findFirst({
+        where: {
+          slug: filters.categorySlug,
+          ...(filters.language ? { language: filters.language as Language } : {}),
+        },
+      });
+      if (category) {
+        const allCategories = await this.prismaService.category.findMany({
+          where: {
+            OR: [
+              { groupId: category.groupId },
+              { parentGroupId: category.groupId },
+            ],
+          },
+          select: { id: true },
+        });
+        where.categoryId = { in: allCategories.map((c) => c.id) };
+      } else {
+        where.categoryId = 'none';
+      }
+    }
     if (filters.authorId) where.authorId = filters.authorId;
     if (filters.language) where.language = filters.language as Language;
     if (filters.featuredType) where.featuredType = filters.featuredType as FeaturedType;
@@ -193,7 +214,7 @@ class ArticleService {
 
   async findAll(query: QueryArticleDto) {
     const { page, limit, skip } = OffsetPagination.parse(query);
-    const where = this.buildWhere(query);
+    const where = await this.buildWhere(query);
 
     const [articles, total] = await Promise.all([
       this.prismaService.article.findMany({
@@ -211,7 +232,7 @@ class ArticleService {
 
   async findAllCursor(query: CursorQueryArticleDto) {
     const { limit, cursor } = CursorPagination.parse(query);
-    const where = this.buildWhere(query);
+    const where = await this.buildWhere(query);
 
     const items = await this.prismaService.article.findMany({
       where,
