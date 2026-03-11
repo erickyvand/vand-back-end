@@ -168,8 +168,10 @@ model Article {
   status      ArticleStatus @default(Draft)
   publishedAt DateTime?
   viewCount    Int           @default(0)
-  featuredType FeaturedType?
-  featuredAt   DateTime?
+  featuredType  FeaturedType?
+  featuredAt    DateTime?
+  isBreaking    Boolean       @default(false)
+  breakingUntil DateTime?
 
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])
@@ -181,6 +183,7 @@ model Article {
   deletedAt   DateTime?
 
   tags        ArticleTag[]
+  comments    Comment[]
 
   @@map("Articles")
   @@schema("Content")
@@ -236,5 +239,19 @@ model Media {
   articles    Article[]
 
   @@map("Media")
+  @@schema("Content")
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  content     String
+  authorName  String
+  authorEmail String
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id])
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  @@map("Comments")
   @@schema("Content")
 }

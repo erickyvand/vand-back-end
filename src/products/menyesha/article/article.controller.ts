@@ -15,6 +15,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -106,6 +107,23 @@ class ArticleController {
     );
   }
 
+  @Get('breaking')
+  @ApiOperation({ summary: 'Get active breaking news articles' })
+  @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
+  @ApiResponse({ status: 200, description: 'Breaking news retrieved successfully' })
+  async findBreaking(
+    @Res() res: Response,
+    @Query('language') language?: string,
+  ) {
+    const result = await this.articleService.findBreaking(language);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Breaking news retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Get('author/:slug')
   @ApiOperation({ summary: 'Get author profile by slug' })
   @ApiResponse({ status: 200, description: 'Author profile retrieved successfully' })
@@ -136,6 +154,23 @@ class ArticleController {
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Author articles retrieved successfully',
+      res,
+      result,
+    );
+  }
+
+  @Get('slug/:slug/related')
+  @ApiOperation({ summary: 'Get related articles by slug' })
+  @ApiResponse({ status: 200, description: 'Related articles retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async getRelated(
+    @Res() res: Response,
+    @Param('slug') slug: string,
+  ) {
+    const result = await this.articleService.getRelatedArticles(slug);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Related articles retrieved successfully',
       res,
       result,
     );

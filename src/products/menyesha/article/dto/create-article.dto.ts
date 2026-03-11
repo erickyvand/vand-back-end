@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsIn,
   IsArray,
+  IsBoolean,
+  IsDateString,
 } from 'class-validator';
 
 export class CreateArticleDto {
@@ -56,4 +58,17 @@ export class CreateArticleDto {
   @IsArray()
   @IsString({ each: true })
   tagIds?: string[];
+
+  @ApiPropertyOptional({ example: true, description: 'Mark as breaking news' })
+  @IsOptional()
+  @IsBoolean()
+  isBreaking?: boolean;
+
+  @ApiPropertyOptional({
+    example: '2026-03-11T18:00:00.000Z',
+    description: 'When breaking news expires',
+  })
+  @IsOptional()
+  @IsDateString()
+  breakingUntil?: string;
 }

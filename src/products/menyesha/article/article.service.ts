@@ -124,9 +124,14 @@ class ArticleService {
           content: data.content,
           thumbnailId: data.thumbnailId,
           language: data.language as Language,
-          status: 'Draft',
+          status: data.isBreaking ? ('Published' as ArticleStatus) : 'Draft',
+          ...(data.isBreaking && { publishedAt: new Date() }),
           categoryId: data.categoryId,
           authorId,
+          ...(data.isBreaking && {
+            isBreaking: true,
+            breakingUntil: data.breakingUntil ? new Date(data.breakingUntil) : new Date(Date.now() + 3 * 60 * 60 * 1000),
+          }),
           ...(data.tagIds?.length && {
             tags: {
               create: data.tagIds.map((tagId) => ({ tagId })),
@@ -158,10 +163,11 @@ class ArticleService {
     }
   }
 
-  private buildWhere(filters: { status?: string; categoryId?: string; authorId?: string; language?: string; featuredType?: string }) {
+  private buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
+    if (filters.categorySlug) where.category = { slug: filters.categorySlug };
     if (filters.authorId) where.authorId = filters.authorId;
     if (filters.language) where.language = filters.language as Language;
     if (filters.featuredType) where.featuredType = filters.featuredType as FeaturedType;
@@ -284,8 +290,23 @@ class ArticleService {
       }
     }
 
-    const { tagIds, featuredType, ...rest } = data;
+    const { tagIds, featuredType, isBreaking, breakingUntil, ...rest } = data;
     const updateData: any = { ...rest };
+
+    if (isBreaking !== undefined) {
+      updateData.isBreaking = isBreaking;
+      if (isBreaking) {
+        updateData.breakingUntil = breakingUntil
+          ? new Date(breakingUntil)
+          : new Date(Date.now() + 3 * 60 * 60 * 1000);
+        updateData.status = 'Published' as ArticleStatus;
+        if (!article.publishedAt) {
+          updateData.publishedAt = new Date();
+        }
+      } else {
+        updateData.breakingUntil = null;
+      }
+    }
 
     if (featuredType !== undefined) {
       const effectiveStatus = data.status || article.status;
@@ -581,6 +602,63 @@ class ArticleService {
     });
 
     logger.handleInfoLog(`Article soft-deleted: ${id}`);
+  }
+
+  async findBreaking(language?: string) {
+    const where: any = {
+      isBreaking: true,
+      status: 'Published' as ArticleStatus,
+      breakingUntil: { gt: new Date() },
+      deletedAt: null,
+    };
+    if (language) where.language = language as Language;
+
+    return this.prismaService.article.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: ARTICLE_INCLUDE,
+    });
+  }
+
+  async getRelatedArticles(slug: string, take = 4) {
+    const article = await this.prismaService.article.findFirst({
+      where: { slug, deletedAt: null },
+      include: { tags: true },
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    const tagIds = article.tags.map((t) => t.tagId);
+
+    if (tagIds.length > 0) {
+      const byTags = await this.prismaService.article.findMany({
+        where: {
+          status: 'Published' as ArticleStatus,
+          deletedAt: null,
+          id: { not: article.id },
+          tags: { some: { tagId: { in: tagIds } } },
+        },
+        orderBy: { publishedAt: 'desc' },
+        take,
+        include: ARTICLE_INCLUDE,
+      });
+
+      if (byTags.length >= 2) return byTags;
+    }
+
+    return this.prismaService.article.findMany({
+      where: {
+        status: 'Published' as ArticleStatus,
+        deletedAt: null,
+        id: { not: article.id },
+        categoryId: article.categoryId,
+      },
+      orderBy: { publishedAt: 'desc' },
+      take,
+      include: ARTICLE_INCLUDE,
+    });
   }
 
   async trending(query: CursorQueryArticleDto) {
