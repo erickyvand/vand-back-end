@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { uniq, compact, kebabCase } from 'lodash';
+import { uniq, compact, find, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -23,8 +23,9 @@ class CategoryService {
       );
     }
 
+    let parentRows: any[] = [];
     if (data.parentGroupId) {
-      const parentRows = await this.prismaService.category.findMany({
+      parentRows = await this.prismaService.category.findMany({
         where: { groupId: data.parentGroupId },
       });
       if (parentRows.length === 0) {
@@ -39,7 +40,12 @@ class CategoryService {
     }
 
     for (const translation of data.translations) {
-      const baseSlug = this.generateSlug(translation.name);
+      const parentSlug = data.parentGroupId
+        ? find(parentRows, ['language', translation.language])?.slug || parentRows[0].slug
+        : null;
+      const baseSlug = parentSlug
+        ? `${parentSlug}-${this.generateSlug(translation.name)}`
+        : this.generateSlug(translation.name);
       const language = translation.language as Language;
 
       const existing = await this.prismaService.category.findUnique({
@@ -57,19 +63,26 @@ class CategoryService {
     const groupId = randomUUID();
 
     const categories = await this.prismaService.$transaction(
-      data.translations.map((translation) =>
-        this.prismaService.category.create({
+      data.translations.map((translation) => {
+        const parentSlug = data.parentGroupId
+          ? find(parentRows, ['language', translation.language])?.slug || parentRows[0].slug
+          : null;
+        const slug = parentSlug
+          ? `${parentSlug}-${this.generateSlug(translation.name)}`
+          : this.generateSlug(translation.name);
+
+        return this.prismaService.category.create({
           data: {
             groupId,
             name: translation.name,
-            slug: this.generateSlug(translation.name),
+            slug,
             description: translation.description,
             image: translation.image,
             language: translation.language as Language,
             parentGroupId: data.parentGroupId || null,
           },
-        }),
-      ),
+        });
+      }),
     );
 
     return categories;

@@ -70,6 +70,22 @@ class CommentController {
     );
   }
 
+  @Get(':articleId/comments/count')
+  @ApiOperation({ summary: 'Get comment count for an article' })
+  @ApiResponse({ status: 200, description: 'Comment count retrieved successfully' })
+  async countByArticle(
+    @Res() res: Response,
+    @Param('articleId') articleId: string,
+  ) {
+    const result = await this.commentService.countByArticle(articleId);
+    return ResponseCommon.handleSuccess(
+      HttpStatus.OK,
+      'Comment count retrieved successfully',
+      res,
+      result,
+    );
+  }
+
   @Delete('comments/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('editor', 'admin')

@@ -59,6 +59,22 @@ class CommentService {
     return { comments: data, meta };
   }
 
+  async countByArticle(articleId: string) {
+    const article = await this.prismaService.article.findFirst({
+      where: { id: articleId, deletedAt: null },
+    });
+
+    if (!article) {
+      throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
+    }
+
+    const count = await this.prismaService.comment.count({
+      where: { articleId },
+    });
+
+    return { articleId, count };
+  }
+
   async remove(id: string) {
     const comment = await this.prismaService.comment.findUnique({
       where: { id },

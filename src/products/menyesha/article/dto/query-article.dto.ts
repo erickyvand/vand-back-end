@@ -4,6 +4,11 @@ import { OffsetPaginationDto } from '../../../../common/pagination';
 import { CursorPaginationDto } from '../../../../common/pagination';
 
 export class QueryArticleDto extends OffsetPaginationDto {
+  @ApiPropertyOptional({ example: 'keyword', description: 'Search articles by title' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({
     enum: ['Draft', 'InReview', 'Published', 'Rejected', 'Archived'],
   })
@@ -43,6 +48,11 @@ export class QueryArticleDto extends OffsetPaginationDto {
 }
 
 export class CursorQueryArticleDto extends CursorPaginationDto {
+  @ApiPropertyOptional({ example: 'keyword', description: 'Search articles by title' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({
     enum: ['Draft', 'InReview', 'Published', 'Rejected', 'Archived'],
   })

@@ -31,6 +31,9 @@ const ARTICLE_INCLUDE = {
       },
     },
   },
+  _count: {
+    select: { comments: true },
+  },
 };
 
 @Injectable()
@@ -179,7 +182,7 @@ class ArticleService {
     }
   }
 
-  private async buildWhere(filters: { status?: string; categoryId?: string; categorySlug?: string; subCategorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
+  private async buildWhere(filters: { search?: string; status?: string; categoryId?: string; categorySlug?: string; subCategorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
@@ -222,6 +225,9 @@ class ArticleService {
       } else {
         where.categoryId = 'none';
       }
+    }
+    if (filters.search) {
+      where.title = { contains: filters.search, mode: 'insensitive' };
     }
     if (filters.authorId) where.authorId = filters.authorId;
     if (filters.language) where.language = filters.language as Language;
