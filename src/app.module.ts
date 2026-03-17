@@ -1,5 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
+import MustChangePasswordGuard from './common/auth/guards/must-change-password.guard';
 
 import AppController from './app.controller';
 import AppService from './app.service';
@@ -10,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { R2Module } from './r2/r2.module';
 import { MediaModule } from './media/media.module';
 import { MenyeshaModule } from './products/menyesha/menyesha.module';
+import MailModule from './common/mail/mail.module';
 
 /**
  * Consumer objects
@@ -32,9 +36,14 @@ import { MenyeshaModule } from './products/menyesha/menyesha.module';
     AdminModule,
     MediaModule,
     MenyeshaModule,
+    MailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    Reflector,
+    { provide: APP_GUARD, useClass: MustChangePasswordGuard },
+  ],
 })
 class AppModule implements NestModule {
   /**

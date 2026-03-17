@@ -88,16 +88,30 @@ class AdminController {
     );
   }
 
+  @Patch(':id/2fa/enable')
+  @ApiOperation({ summary: 'Enable 2FA for a user' })
+  @ApiResponse({ status: 200, description: '2FA enabled successfully' })
+  async enableTwoFactor(@Res() res: Response, @Req() req: Request, @Param('id') id: string) {
+    const admin = req.user as any;
+    await this.adminService.toggleTwoFactor(id, true, admin.id);
+    return ResponseCommon.handleSuccess(HttpStatus.OK, '2FA enabled successfully', res);
+  }
+
+  @Patch(':id/2fa/disable')
+  @ApiOperation({ summary: 'Disable 2FA for a user' })
+  @ApiResponse({ status: 200, description: '2FA disabled successfully' })
+  async disableTwoFactor(@Res() res: Response, @Req() req: Request, @Param('id') id: string) {
+    const admin = req.user as any;
+    await this.adminService.toggleTwoFactor(id, false, admin.id);
+    return ResponseCommon.handleSuccess(HttpStatus.OK, '2FA disabled successfully', res);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete a user' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   async softDelete(@Res() res: Response, @Param('id') id: string) {
     await this.adminService.softDeleteUser(id);
-    return ResponseCommon.handleSuccess(
-      HttpStatus.OK,
-      'User deleted successfully',
-      res,
-    );
+    return ResponseCommon.handleSuccess(HttpStatus.OK, 'User deleted successfully', res);
   }
 }
 

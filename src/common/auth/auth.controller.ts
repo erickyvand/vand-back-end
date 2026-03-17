@@ -7,6 +7,9 @@ import ResponseCommon from '../response.common';
 import AuthService from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { VerifyTwoFactorDto } from './dto/two-factor.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { SkipMustChangePassword } from '../auth/guards/must-change-password.guard';
 
 const logger = new LoggerService('auth');
 
@@ -60,6 +63,46 @@ class AuthController {
       result,
     );
   }
+  @Post('2fa/verify')
+  @ApiOperation({ summary: 'Verify 2FA OTP and complete login' })
+  @ApiResponse({ status: 200, description: 'Login completed successfully.' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired OTP.' })
+  async verifyTwoFactor(
+    @Res() res: Response,
+    @Req() req: Request,
+    @Body() body: VerifyTwoFactorDto,
+  ) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const result = await this.authService.verifyTwoFactor(body.tempToken, body.otp, ip);
+    return ResponseCommon.handleSuccess(HttpStatus.OK, 'Login successful', res, result);
+  }
+
+  @Get('terms')
+  @ApiOperation({ summary: 'Get current active terms and conditions' })
+  @ApiResponse({ status: 200, description: 'Terms retrieved successfully' })
+  async getTerms(@Res() res: Response) {
+    const result = await this.authService.getActiveTerms();
+    return ResponseCommon.handleSuccess(HttpStatus.OK, 'Terms retrieved successfully', res, result);
+  }
+
+  @Post('change-password')
+  @SkipMustChangePassword()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password (required on first login) — must accept terms and conditions' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully.' })
+  @ApiResponse({ status: 400, description: 'Terms not accepted or same password.' })
+  @ApiResponse({ status: 401, description: 'Current password incorrect.' })
+  async changePassword(
+    @Res() res: Response,
+    @Req() req: Request,
+    @Body() body: ChangePasswordDto,
+  ) {
+    const user = req.user as any;
+    await this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+    return ResponseCommon.handleSuccess(HttpStatus.OK, 'Password changed successfully', res, null);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -14,7 +14,10 @@ class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: { sub: string; email: string; userType: string }) {
+  async validate(payload: { sub: string; email: string; userType: string; purpose?: string }) {
+    if (payload.purpose === '2fa') {
+      throw new HttpException('Token is not valid for this endpoint', HttpStatus.UNAUTHORIZED);
+    }
     const user = await this.prismaService.user.findUnique({
       where: { id: payload.sub },
       include: {

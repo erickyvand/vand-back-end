@@ -24,6 +24,9 @@ export const {
   R2_BUCKET_NAME,
   R2_PUBLIC_URL,
   R2_FOLDER,
+  BREVO_API_KEY,
+  MAIL_FROM_EMAIL,
+  MAIL_FROM_NAME,
 } = process.env;
 
 const corsWhitelist = CORS_ORIGIN_WHITELIST?.split(';') ?? [];

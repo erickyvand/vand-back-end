@@ -1,16 +1,26 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { kebabCase } from 'lodash';
+import { randomBytes } from 'crypto';
 import Argon from '../argon/argon';
 import PrismaService from '../prisma/prisma.service';
+import MailService from '../common/mail/mail.service';
 import { CreateAdminDto } from './dto/create.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { CreateTermsDto } from './dto/create-terms.dto';
 import { OffsetPagination } from '../common/pagination';
 
 @Injectable()
 class AdminService {
   private readonly argon = new Argon();
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
+
+  private generateTempPassword(): string {
+    return randomBytes(6).toString('hex');
+  }
 
   private toSlug(text: string): string {
     return kebabCase(text);
@@ -53,7 +63,8 @@ class AdminService {
     }
 
     const slug = await this.generateUserSlug(body.fullName);
-    const hashedPassword = await this.argon.hashPassword('password');
+    const tempPassword = this.generateTempPassword();
+    const hashedPassword = await this.argon.hashPassword(tempPassword);
 
     const user = await this.prismaService.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -97,6 +108,22 @@ class AdminService {
           },
         },
       });
+    });
+
+    await this.mailService.send({
+      // to: { email: body.email, name: body.fullName },
+      to: { email: 'erickyvand@gmail.com', name: body.fullName },
+      subject: 'Welcome to Vand — Your account is ready',
+      htmlContent: `
+        <p>Hi ${body.fullName},</p>
+        <p>Your account has been created. Use the credentials below to log in:</p>
+        <table style="border-collapse:collapse;margin:16px 0">
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Email</td><td>${body.email}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Password</td><td style="font-family:monospace;font-size:16px">${tempPassword}</td></tr>
+        </table>
+        <p>You will be required to accept our terms and conditions and set a new password before you can use your account.</p>
+        <p>Keep this email confidential. If you did not expect this, contact your administrator immediately.</p>
+      `,
     });
 
     return user;
@@ -195,6 +222,37 @@ class AdminService {
     });
   }
 
+  async toggleTwoFactor(id: string, enabled: boolean, adminId: string) {
+    if (id === adminId) {
+      throw new HttpException('You cannot toggle your own 2FA', HttpStatus.FORBIDDEN);
+    }
+
+    const user = await this.findUserOrFail(id);
+
+    const profile = await this.prismaService.internalProfile.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!profile) {
+      throw new HttpException('Internal profile not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (profile.twoFactorEnabled === enabled) {
+      throw new HttpException(
+        `2FA is already ${enabled ? 'enabled' : 'disabled'} for this user`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prismaService.internalProfile.update({
+      where: { userId: user.id },
+      data: {
+        twoFactorEnabled: enabled,
+        ...(!enabled && { twoFactorOtp: null, twoFactorOtpExpiry: null }),
+      },
+    });
+  }
+
   async findRoles() {
     return this.prismaService.role.findMany({
       select: {
@@ -204,6 +262,61 @@ class AdminService {
       },
       orderBy: { name: 'asc' },
     });
+  }
+
+  async createTerms(data: CreateTermsDto, createdById: string) {
+    const existing = await this.prismaService.terms.findUnique({
+      where: { version: data.version },
+    });
+    if (existing) {
+      throw new HttpException(`Terms version '${data.version}' already exists`, HttpStatus.CONFLICT);
+    }
+
+    return this.prismaService.terms.create({
+      data: {
+        version: data.version,
+        content: data.content,
+        createdBy: createdById,
+      },
+    });
+  }
+
+  async findAllTerms() {
+    return this.prismaService.terms.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, version: true, isActive: true, createdAt: true, updatedAt: true },
+    });
+  }
+
+  async findTermsById(id: string) {
+    const terms = await this.prismaService.terms.findUnique({ where: { id } });
+    if (!terms) throw new HttpException('Terms not found', HttpStatus.NOT_FOUND);
+    return terms;
+  }
+
+  async activateTerms(id: string) {
+    const terms = await this.prismaService.terms.findUnique({ where: { id } });
+    if (!terms) throw new HttpException('Terms not found', HttpStatus.NOT_FOUND);
+    if (terms.isActive) throw new HttpException('This version is already active', HttpStatus.BAD_REQUEST);
+
+    await this.prismaService.$transaction([
+      this.prismaService.terms.updateMany({
+        where: { isActive: true },
+        data: { isActive: false },
+      }),
+      this.prismaService.terms.update({
+        where: { id },
+        data: { isActive: true },
+      }),
+    ]);
+
+    return this.prismaService.terms.findUnique({ where: { id } });
+  }
+
+  async getActiveTerms() {
+    const terms = await this.prismaService.terms.findFirst({ where: { isActive: true } });
+    if (!terms) throw new HttpException('No active terms found', HttpStatus.NOT_FOUND);
+    return terms;
   }
 }
 

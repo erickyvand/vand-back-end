@@ -82,8 +82,12 @@ model InternalProfile {
   role               Role         @relation(fields: [roleId], references: [id])
   mustChangePassword Boolean      @default(true)
   lastPasswordChange DateTime?
-  twoFactorEnabled   Boolean      @default(false)
+  termsAcceptedAt    DateTime?
+  termsVersion       String?
+  twoFactorEnabled   Boolean      @default(true)
   twoFactorSecret    String?
+  twoFactorOtp       String?
+  twoFactorOtpExpiry DateTime?
   isSuspended        Boolean      @default(false)
   suspendedReason    String?
   suspendedAt        DateTime?
@@ -99,6 +103,19 @@ model InternalProfile {
   uploadedMedia      Media[]
 
   @@map("InternalProfiles")
+  @@schema("Authentication")
+}
+
+model Terms {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  content   String
+  isActive  Boolean  @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Terms")
   @@schema("Authentication")
 }
 
