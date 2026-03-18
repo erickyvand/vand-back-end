@@ -95,6 +95,9 @@ model InternalProfile {
   createdBy          String?
   avatar             String?
   bio                String?
+  displayName        String?
+  xLink              String?
+  linkedinLink       String?
   timezone           String       @default("Africa/Kigali")
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -192,6 +195,9 @@ model Article {
   featuredAt    DateTime?
   isBreaking    Boolean       @default(false)
   breakingUntil DateTime?
+  isSponsored   Boolean       @default(false)
+  sponsoredBy   String?
+  sponsoredUntil DateTime?
 
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])

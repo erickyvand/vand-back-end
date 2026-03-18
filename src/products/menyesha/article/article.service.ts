@@ -14,8 +14,14 @@ const logger = new LoggerService('article');
 const ARTICLE_INCLUDE = {
   category: true,
   author: {
-    include: {
-      user: { select: { fullName: true, email: true, slug: true } },
+    select: {
+      id: true,
+      displayName: true,
+      avatar: true,
+      bio: true,
+      xLink: true,
+      linkedinLink: true,
+      user: { select: { fullName: true, slug: true } },
     },
   },
   thumbnail: true,
@@ -90,6 +96,18 @@ class ArticleService {
   }
 
   async create(data: CreateArticleDto, authorId: string) {
+    const author = await this.prismaService.internalProfile.findUnique({
+      where: { id: authorId },
+      select: { avatar: true, bio: true },
+    });
+
+    if (!author?.avatar || !author?.bio) {
+      throw new HttpException(
+        'You must complete your profile (avatar and bio) before creating an article',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     const category = await this.prismaService.category.findUnique({
       where: { id: data.categoryId },
     });
@@ -151,6 +169,11 @@ class ArticleService {
             isBreaking: true,
             breakingUntil: data.breakingUntil ? new Date(data.breakingUntil) : new Date(Date.now() + 3 * 60 * 60 * 1000),
           }),
+          ...(data.isSponsored && {
+            isSponsored: true,
+            sponsoredBy: data.sponsoredBy,
+            sponsoredUntil: data.sponsoredUntil ? new Date(data.sponsoredUntil) : null,
+          }),
           ...(data.tagIds?.length && {
             tags: {
               create: data.tagIds.map((tagId) => ({ tagId })),
@@ -182,7 +205,7 @@ class ArticleService {
     }
   }
 
-  private async buildWhere(filters: { search?: string; status?: string; categoryId?: string; categorySlug?: string; subCategorySlug?: string; authorId?: string; language?: string; featuredType?: string }) {
+  private async buildWhere(filters: { search?: string; status?: string; categoryId?: string; categorySlug?: string; subCategorySlug?: string; authorId?: string; language?: string; featuredType?: string; isSponsored?: boolean }) {
     const where: any = { deletedAt: null };
     if (filters.status) where.status = filters.status as ArticleStatus;
     if (filters.categoryId) where.categoryId = filters.categoryId;
@@ -232,6 +255,7 @@ class ArticleService {
     if (filters.authorId) where.authorId = filters.authorId;
     if (filters.language) where.language = filters.language as Language;
     if (filters.featuredType) where.featuredType = filters.featuredType as FeaturedType;
+    if (filters.isSponsored !== undefined) where.isSponsored = filters.isSponsored;
     return where;
   }
 
@@ -368,7 +392,7 @@ class ArticleService {
       }
     }
 
-    const { tagIds, featuredType, isBreaking, breakingUntil, ...rest } = data;
+    const { tagIds, featuredType, isBreaking, breakingUntil, isSponsored, sponsoredBy, sponsoredUntil, ...rest } = data;
     const updateData: any = { ...rest };
 
     if (isBreaking !== undefined) {
@@ -383,6 +407,17 @@ class ArticleService {
         }
       } else {
         updateData.breakingUntil = null;
+      }
+    }
+
+    if (isSponsored !== undefined) {
+      updateData.isSponsored = isSponsored;
+      if (isSponsored) {
+        updateData.sponsoredBy = sponsoredBy ?? null;
+        updateData.sponsoredUntil = sponsoredUntil ? new Date(sponsoredUntil) : null;
+      } else {
+        updateData.sponsoredBy = null;
+        updateData.sponsoredUntil = null;
       }
     }
 
@@ -764,8 +799,11 @@ class ArticleService {
         internalProfile: {
           select: {
             id: true,
+            displayName: true,
             avatar: true,
             bio: true,
+            xLink: true,
+            linkedinLink: true,
             role: true,
           },
         },

@@ -230,6 +230,31 @@ class AuthService {
     logger.handleInfoLog(`Password changed for user ${user.email}`);
   }
 
+  async updateProfile(userId: string, data: { displayName?: string; avatar?: string; bio?: string; xLink?: string; linkedinLink?: string }) {
+    const profile = await this.prismaService.internalProfile.findUnique({ where: { userId } });
+    if (!profile) throw new HttpException('Profile not found', HttpStatus.NOT_FOUND);
+
+    return this.prismaService.internalProfile.update({
+      where: { userId },
+      data: {
+        ...(data.displayName !== undefined && { displayName: data.displayName }),
+        ...(data.avatar !== undefined && { avatar: data.avatar }),
+        ...(data.bio !== undefined && { bio: data.bio }),
+        ...(data.xLink !== undefined && { xLink: data.xLink }),
+        ...(data.linkedinLink !== undefined && { linkedinLink: data.linkedinLink }),
+      },
+      select: {
+        id: true,
+        displayName: true,
+        avatar: true,
+        bio: true,
+        xLink: true,
+        linkedinLink: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async getActiveTerms() {
     const terms = await this.prismaService.terms.findFirst({ where: { isActive: true } });
     if (!terms) throw new HttpException('No active terms found', HttpStatus.NOT_FOUND);
@@ -285,8 +310,11 @@ class AuthService {
           select: {
             id: true,
             role: true,
+            displayName: true,
             avatar: true,
             bio: true,
+            xLink: true,
+            linkedinLink: true,
             twoFactorEnabled: true,
           },
         },

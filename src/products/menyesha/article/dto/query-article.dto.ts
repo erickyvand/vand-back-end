@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsIn, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { OffsetPaginationDto } from '../../../../common/pagination';
 import { CursorPaginationDto } from '../../../../common/pagination';
 
@@ -45,6 +46,12 @@ export class QueryArticleDto extends OffsetPaginationDto {
   @IsOptional()
   @IsIn(['Hero', 'Secondary', 'Spotlight'])
   featuredType?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Filter by sponsored articles' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isSponsored?: boolean;
 }
 
 export class CursorQueryArticleDto extends CursorPaginationDto {
@@ -89,4 +96,10 @@ export class CursorQueryArticleDto extends CursorPaginationDto {
   @IsOptional()
   @IsIn(['Hero', 'Secondary', 'Spotlight'])
   featuredType?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Filter by sponsored articles' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isSponsored?: boolean;
 }

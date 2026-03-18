@@ -71,4 +71,22 @@ export class CreateArticleDto {
   @IsOptional()
   @IsDateString()
   breakingUntil?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Mark as sponsored content' })
+  @IsOptional()
+  @IsBoolean()
+  isSponsored?: boolean;
+
+  @ApiPropertyOptional({ example: 'Bank of Kigali', description: 'Name of the sponsor' })
+  @IsOptional()
+  @IsString()
+  sponsoredBy?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-06-01T00:00:00.000Z',
+    description: 'When sponsorship expires',
+  })
+  @IsOptional()
+  @IsDateString()
+  sponsoredUntil?: string;
 }

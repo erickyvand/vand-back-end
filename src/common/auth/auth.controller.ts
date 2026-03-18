@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import JwtAuthGuard from './guards/jwt-auth.guard';
@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { VerifyTwoFactorDto } from './dto/two-factor.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SkipMustChangePassword } from '../auth/guards/must-change-password.guard';
 
 const logger = new LoggerService('auth');
@@ -101,6 +102,17 @@ class AuthController {
     const user = req.user as any;
     await this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
     return ResponseCommon.handleSuccess(HttpStatus.OK, 'Password changed successfully', res, null);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update own profile (bio, displayName, xLink, linkedinLink)' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  async updateProfile(@Res() res: Response, @Req() req: Request, @Body() body: UpdateProfileDto) {
+    const user = req.user as any;
+    const result = await this.authService.updateProfile(user.id, body);
+    return ResponseCommon.handleSuccess(HttpStatus.OK, 'Profile updated successfully', res, result);
   }
 
   @Get('me')
