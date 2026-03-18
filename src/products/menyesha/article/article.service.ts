@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { uniq, compact, difference, map, groupBy, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import LoggerService from '../../../logger/logger.service';
@@ -96,31 +97,65 @@ class ArticleService {
   }
 
   async create(data: CreateArticleDto, authorId: string) {
-    const author = await this.prismaService.internalProfile.findUnique({
-      where: { id: authorId },
-      select: { avatar: true, bio: true },
-    });
+    const isBreaking = !!data.isBreaking;
 
-    if (!author?.avatar || !author?.bio) {
-      throw new HttpException(
-        'You must complete your profile (avatar and bio) before creating an article',
-        HttpStatus.FORBIDDEN,
-      );
+    if (isBreaking) {
+      if (data.title.length > 100) {
+        throw new HttpException('Breaking news title must be 100 characters or less', HttpStatus.BAD_REQUEST);
+      }
+    } else {
+      // Normal article: enforce all requirements
+      const author = await this.prismaService.internalProfile.findUnique({
+        where: { id: authorId },
+        select: { avatar: true, bio: true },
+      });
+
+      if (!author?.avatar || !author?.bio) {
+        throw new HttpException(
+          'You must complete your profile (avatar and bio) before creating an article',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      if (!data.content) {
+        throw new HttpException('Content is required for normal articles', HttpStatus.BAD_REQUEST);
+      }
+
+      if (!data.categoryId) {
+        throw new HttpException('Category is required for normal articles', HttpStatus.BAD_REQUEST);
+      }
     }
 
-    const category = await this.prismaService.category.findUnique({
-      where: { id: data.categoryId },
-    });
+    let categoryId = data.categoryId;
 
-    if (!category) {
-      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    if (isBreaking && !categoryId) {
+      const breakingCategory = await this.prismaService.category.findFirst({
+        where: { slug: 'breaking-news', language: data.language as Language },
+      });
+      if (!breakingCategory) {
+        throw new HttpException(
+          'Breaking News category not found. Please seed it first.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      categoryId = breakingCategory.id;
     }
 
-    if (category.language !== data.language) {
-      throw new HttpException(
-        `Category language '${category.language}' does not match article language '${data.language}'`,
-        HttpStatus.BAD_REQUEST,
-      );
+    if (categoryId) {
+      const category = await this.prismaService.category.findUnique({
+        where: { id: categoryId },
+      });
+
+      if (!category) {
+        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (category.language !== data.language) {
+        throw new HttpException(
+          `Category language '${category.language}' does not match article language '${data.language}'`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     if (data.thumbnailId) {
@@ -158,14 +193,14 @@ class ArticleService {
           title: data.title,
           slug,
           excerpt: data.excerpt,
-          content: data.content,
+          content: data.content || {},
           thumbnailId: data.thumbnailId,
           language: data.language as Language,
-          status: data.isBreaking ? ('Published' as ArticleStatus) : 'Draft',
-          ...(data.isBreaking && { publishedAt: new Date() }),
-          categoryId: data.categoryId,
+          status: isBreaking ? ('Published' as ArticleStatus) : 'Draft',
+          ...(isBreaking && { publishedAt: new Date() }),
+          categoryId: categoryId!,
           authorId,
-          ...(data.isBreaking && {
+          ...(isBreaking && {
             isBreaking: true,
             breakingUntil: data.breakingUntil ? new Date(data.breakingUntil) : new Date(Date.now() + 3 * 60 * 60 * 1000),
           }),
@@ -259,19 +294,62 @@ class ArticleService {
     return where;
   }
 
-  private validateStatusTransition(current: string, next: string) {
-    const allowed: Record<string, string[]> = {
-      Draft: ['Published', 'InReview'],
-      InReview: ['Published', 'Draft', 'Rejected'],
-      Published: ['Archived'],
-      Rejected: ['Draft', 'InReview'],
-      Archived: [],
+  private hashIp(ip: string): string {
+    const daySalt = new Date().toISOString().slice(0, 10);
+    return createHash('sha256').update(`${ip}:${daySalt}`).digest('hex');
+  }
+
+  private async recordView(articleId: string, ip?: string, userAgent?: string): Promise<void> {
+    if (!ip) return;
+
+    const ipHash = this.hashIp(ip);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const recentView = await this.prismaService.articleView.findFirst({
+      where: {
+        articleId,
+        ipHash,
+        createdAt: { gte: twentyFourHoursAgo },
+      },
+    });
+
+    if (recentView) return;
+
+    await this.prismaService.$transaction([
+      this.prismaService.articleView.create({
+        data: { articleId, ipHash, userAgent },
+      }),
+      this.prismaService.article.update({
+        where: { id: articleId },
+        data: { viewCount: { increment: 1 } },
+      }),
+    ]);
+  }
+
+  private validateStatusTransition(current: string, next: string, role: string) {
+    const allowedByRole: Record<string, Record<string, string[]>> = {
+      reporter: {
+        Draft: ['InReview'],
+        Rejected: ['InReview'],
+      },
+      editor: {
+        Draft: ['InReview'],
+        InReview: ['Published', 'Draft', 'Rejected'],
+        Rejected: ['InReview'],
+      },
+      admin: {
+        Draft: ['InReview', 'Published'],
+        InReview: ['Published', 'Draft', 'Rejected'],
+        Published: ['Archived'],
+        Rejected: ['Draft', 'InReview'],
+      },
     };
 
-    if (!allowed[current]?.includes(next)) {
+    const allowed = allowedByRole[role]?.[current] || [];
+    if (!allowed.includes(next)) {
       throw new HttpException(
-        `Cannot transition from ${current} to ${next}`,
-        HttpStatus.BAD_REQUEST,
+        `Role '${role}' cannot transition from ${current} to ${next}`,
+        HttpStatus.FORBIDDEN,
       );
     }
   }
@@ -311,7 +389,7 @@ class ArticleService {
     return { articles: enriched, meta };
   }
 
-  async findOne(id: string, language?: string) {
+  async findOne(id: string, language?: string, ip?: string, userAgent?: string, isInternal?: boolean) {
     const where: any = { id, deletedAt: null };
     if (language) where.language = language as Language;
     const article = await this.prismaService.article.findFirst({
@@ -323,16 +401,15 @@ class ArticleService {
       throw new HttpException('Article not found', HttpStatus.NOT_FOUND);
     }
 
-    this.prismaService.article.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
-    }).catch(() => {});
+    if (!isInternal) {
+      this.recordView(article.id, ip, userAgent).catch(() => {});
+    }
 
     const [enriched] = await this.enrichWithParentCategory([article]);
     return enriched;
   }
 
-  async findBySlug(slug: string, language?: string, subCategorySlug?: string) {
+  async findBySlug(slug: string, language?: string, subCategorySlug?: string, ip?: string, userAgent?: string, isInternal?: boolean) {
     const where: any = { slug, deletedAt: null };
     if (language) where.language = language as Language;
     const article = await this.prismaService.article.findFirst({
@@ -357,10 +434,9 @@ class ArticleService {
       }
     }
 
-    this.prismaService.article.update({
-      where: { id: article.id },
-      data: { viewCount: { increment: 1 } },
-    }).catch(() => {});
+    if (!isInternal) {
+      this.recordView(article.id, ip, userAgent).catch(() => {});
+    }
 
     const [enriched] = await this.enrichWithParentCategory([article]);
     return enriched;
@@ -392,7 +468,7 @@ class ArticleService {
       }
     }
 
-    const { tagIds, featuredType, isBreaking, breakingUntil, isSponsored, sponsoredBy, sponsoredUntil, ...rest } = data;
+    const { tagIds, featuredType, isBreaking, breakingUntil, isSponsored, sponsoredBy, sponsoredUntil, rejectionNote, ...rest } = data;
     const updateData: any = { ...rest };
 
     if (isBreaking !== undefined) {
@@ -401,10 +477,6 @@ class ArticleService {
         updateData.breakingUntil = breakingUntil
           ? new Date(breakingUntil)
           : new Date(Date.now() + 3 * 60 * 60 * 1000);
-        updateData.status = 'Published' as ArticleStatus;
-        if (!article.publishedAt) {
-          updateData.publishedAt = new Date();
-        }
       } else {
         updateData.breakingUntil = null;
       }
@@ -455,13 +527,35 @@ class ArticleService {
     }
 
     if (data.status) {
-      this.validateStatusTransition(article.status, data.status);
-      if (data.status === 'InReview' && article.tags.length === 0) {
-        throw new HttpException(
-          'Article must have at least one tag before submitting for review',
-          HttpStatus.BAD_REQUEST,
-        );
+      this.validateStatusTransition(article.status, data.status, roleName);
+
+      if (['InReview', 'Published'].includes(data.status)) {
+        const missing: string[] = [];
+        if (!article.excerpt && !data.excerpt) missing.push('excerpt');
+        if (!article.thumbnailId && !data.thumbnailId) missing.push('thumbnail');
+        if (article.tags.length === 0 && !tagIds?.length) missing.push('at least one tag');
+        if (missing.length) {
+          throw new HttpException(
+            `Article is incomplete. Missing: ${missing.join(', ')}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
       }
+
+      if (data.status === 'Rejected') {
+        if (!data.rejectionNote) {
+          throw new HttpException(
+            'A rejection note is required when rejecting an article',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        updateData.rejectionNote = data.rejectionNote;
+      }
+
+      if (data.status !== 'Rejected') {
+        updateData.rejectionNote = null;
+      }
+
       updateData.status = data.status as ArticleStatus;
       if (data.status === 'Published' && !article.publishedAt) {
         updateData.publishedAt = new Date();

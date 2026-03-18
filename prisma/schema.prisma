@@ -198,6 +198,7 @@ model Article {
   isSponsored   Boolean       @default(false)
   sponsoredBy   String?
   sponsoredUntil DateTime?
+  rejectionNote String?
 
   categoryId  String
   category    Category        @relation(fields: [categoryId], references: [id])
@@ -210,8 +211,22 @@ model Article {
 
   tags        ArticleTag[]
   comments    Comment[]
+  views       ArticleView[]
 
   @@map("Articles")
+  @@schema("Content")
+}
+
+model ArticleView {
+  id         String   @id @default(cuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id])
+  ipHash     String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([articleId, ipHash, createdAt])
+  @@map("ArticleViews")
   @@schema("Content")
 }
 

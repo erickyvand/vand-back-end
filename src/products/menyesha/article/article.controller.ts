@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import JwtAuthGuard from '../../../common/auth/guards/jwt-auth.guard';
+import OptionalJwtAuthGuard from '../../../common/auth/guards/optional-jwt-auth.guard';
 import RolesGuard from '../../../common/auth/guards/roles.guard';
 import { Roles } from '../../../common/auth/decorators/roles.decorator';
 import ResponseCommon from '../../../common/response.common';
@@ -177,16 +178,22 @@ class ArticleController {
   }
 
   @Get('slug/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get a single article by slug (SEO-friendly)' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Article not found' })
   async findBySlug(
     @Res() res: Response,
+    @Req() req: Request,
     @Param('slug') slug: string,
     @Query('language') language?: string,
     @Query('subCategorySlug') subCategorySlug?: string,
   ) {
-    const result = await this.articleService.findBySlug(slug, language, subCategorySlug);
+    const ip = req.ip || req.headers['x-forwarded-for'] as string;
+    const userAgent = req.headers['user-agent'];
+    const user = req.user as any;
+    const isInternal = !!user?.internalProfile;
+    const result = await this.articleService.findBySlug(slug, language, subCategorySlug, ip, userAgent, isInternal);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article retrieved successfully',
@@ -196,15 +203,21 @@ class ArticleController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get a single article by ID' })
   @ApiResponse({ status: 200, description: 'Article retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Article not found' })
   async findOne(
     @Res() res: Response,
+    @Req() req: Request,
     @Param('id') id: string,
     @Query('language') language?: string,
   ) {
-    const result = await this.articleService.findOne(id, language);
+    const ip = req.ip || req.headers['x-forwarded-for'] as string;
+    const userAgent = req.headers['user-agent'];
+    const user = req.user as any;
+    const isInternal = !!user?.internalProfile;
+    const result = await this.articleService.findOne(id, language, ip, userAgent, isInternal);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Article retrieved successfully',

@@ -7,12 +7,14 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateArticleDto {
   @ApiProperty({ example: 'Breaking News: Major Event Unfolds' })
   @IsNotEmpty()
   @IsString()
+  @MaxLength(200)
   title!: string;
 
   @ApiPropertyOptional({ example: 'A brief summary of the article' })
@@ -20,7 +22,7 @@ export class CreateArticleDto {
   @IsString()
   excerpt?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: {
       type: 'doc',
       content: [
@@ -30,10 +32,10 @@ export class CreateArticleDto {
         },
       ],
     },
-    description: 'Tiptap JSON content (ProseMirror document format)',
+    description: 'Tiptap JSON content (ProseMirror document format). Required for normal articles, optional for breaking news.',
   })
-  @IsNotEmpty()
-  content!: any;
+  @IsOptional()
+  content?: any;
 
   @ApiPropertyOptional({ example: 'clxxxxxxxxxxxxxxxxx' })
   @IsOptional()
@@ -45,10 +47,13 @@ export class CreateArticleDto {
   @IsIn(['en', 'fr', 'rw'], { message: 'Language must be one of: en, fr, rw' })
   language!: string;
 
-  @ApiProperty({ example: 'clxxxxxxxxxxxxxxxxx' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({
+    example: 'clxxxxxxxxxxxxxxxxx',
+    description: 'Required for normal articles, optional for breaking news',
+  })
+  @IsOptional()
   @IsString()
-  categoryId!: string;
+  categoryId?: string;
 
   @ApiPropertyOptional({
     example: ['clxxxxxxxxxxxxxxxxx'],
