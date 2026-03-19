@@ -68,8 +68,19 @@ class TagService {
     return { ...tag, label: translation ? translation.label : tag.name };
   }
 
-  async findAll(language?: string) {
+  async findAll(language?: string, search?: string) {
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { slug: { contains: this.toSlug(search), mode: 'insensitive' } },
+        { translations: { some: { label: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
+
     const tags = await this.prismaService.tag.findMany({
+      where,
       orderBy: { slug: 'asc' },
       include: TAG_INCLUDE,
     });

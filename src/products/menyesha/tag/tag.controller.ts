@@ -49,11 +49,16 @@ class TagController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all tags' })
+  @ApiOperation({ summary: 'List and search tags' })
   @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
+  @ApiQuery({ name: 'search', required: false, description: 'Search tags by name, slug, or translation label' })
   @ApiResponse({ status: 200, description: 'Tags retrieved successfully' })
-  async findAll(@Res() res: Response, @Query('language') language?: string) {
-    const result = await this.tagService.findAll(language);
+  async findAll(
+    @Res() res: Response,
+    @Query('language') language?: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.tagService.findAll(language, search);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Tags retrieved successfully',
