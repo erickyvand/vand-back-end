@@ -3,19 +3,11 @@ import { randomUUID } from 'crypto';
 
 const categories = [
   {
-    slug: 'breaking-news',
+    slug: 'news',
     names: [
-      { language: Language.en, name: 'Breaking News', description: 'Urgent and breaking news stories' },
-      { language: Language.fr, name: 'Dernières Nouvelles', description: 'Actualités urgentes et de dernière heure' },
-      { language: Language.rw, name: 'Amakuru Ahutirwa', description: 'Amakuru yihutirwa akomeye' },
-    ],
-  },
-  {
-    slug: 'politics',
-    names: [
-      { language: Language.en, name: 'Politics', description: 'Political news and analysis' },
-      { language: Language.fr, name: 'Politique', description: 'Actualités et analyses politiques' },
-      { language: Language.rw, name: 'Politiki', description: 'Amakuru ya politiki' },
+      { language: Language.en, name: 'News', description: 'News and analysis' },
+      { language: Language.fr, name: 'Actualités', description: 'Actualités et analyses' },
+      { language: Language.rw, name: 'Amakuru', description: 'Amakuru ya asanzwe' },
     ],
   },
   {
@@ -40,22 +32,6 @@ const categories = [
       { language: Language.en, name: 'Entertainment', description: 'Entertainment and culture' },
       { language: Language.fr, name: 'Divertissement', description: 'Divertissement et culture' },
       { language: Language.rw, name: 'Imyidagaduro', description: "Imyidagaduro n'umuco" },
-    ],
-  },
-  {
-    slug: 'business',
-    names: [
-      { language: Language.en, name: 'Business', description: 'Business and economy news' },
-      { language: Language.fr, name: 'Affaires', description: 'Actualités économiques et commerciales' },
-      { language: Language.rw, name: 'Ubucuruzi', description: "Amakuru y'ubucuruzi n'ubukungu" },
-    ],
-  },
-  {
-    slug: 'health',
-    names: [
-      { language: Language.en, name: 'Health', description: 'Health and wellness' },
-      { language: Language.fr, name: 'Santé', description: 'Santé et bien-être' },
-      { language: Language.rw, name: 'Ubuzima', description: "Ubuzima n'imibereho myiza" },
     ],
   },
 ];

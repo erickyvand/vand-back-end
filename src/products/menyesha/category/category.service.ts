@@ -88,9 +88,10 @@ class CategoryService {
     return categories;
   }
 
-  async findAll(language?: string) {
+  async findAll(language?: string, slug?: string) {
     const where: any = { parentGroupId: null };
     if (language) where.language = language as Language;
+    if (slug) where.slug = slug;
 
     const parents = await this.prismaService.category.findMany({
       where,

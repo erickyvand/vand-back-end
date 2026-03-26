@@ -52,9 +52,14 @@ class CategoryController {
   @Get()
   @ApiOperation({ summary: 'List all categories' })
   @ApiQuery({ name: 'language', required: false, enum: ['en', 'fr', 'rw'] })
+  @ApiQuery({ name: 'slug', required: false, description: 'Filter by category slug' })
   @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
-  async findAll(@Res() res: Response, @Query('language') language?: string) {
-    const result = await this.categoryService.findAll(language);
+  async findAll(
+    @Res() res: Response,
+    @Query('language') language?: string,
+    @Query('slug') slug?: string,
+  ) {
+    const result = await this.categoryService.findAll(language, slug);
     return ResponseCommon.handleSuccess(
       HttpStatus.OK,
       'Categories retrieved successfully',
