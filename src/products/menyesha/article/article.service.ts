@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { uniq, compact, difference, map, groupBy, kebabCase } from 'lodash';
 import PrismaService from '../../../prisma/prisma.service';
 import LoggerService from '../../../logger/logger.service';
+import MailService from '../../../common/mail/mail.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { QueryArticleDto, CursorQueryArticleDto } from './dto/query-article.dto';
@@ -45,7 +46,10 @@ const ARTICLE_INCLUDE = {
 
 @Injectable()
 class ArticleService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   private async enrichWithParentCategory(articles: any[]) {
     const parentGroupIds = uniq(compact(articles.map((a) => a.category?.parentGroupId))) as string[];
@@ -354,6 +358,87 @@ class ArticleService {
     }
   }
 
+  private async notifyOnStatusChange(article: any, status: string) {
+    try {
+      switch (status) {
+        case 'InReview':
+          await this.notifyEditors(article);
+          break;
+        case 'Published':
+          await this.notifyAuthor(article, {
+            subject: `Your article has been published: ${article.title}`,
+            htmlContent: `
+              <h2>Your article has been published!</h2>
+              <p><strong>Title:</strong> ${article.title}</p>
+              <p><strong>Category:</strong> ${article.category?.name || 'N/A'}</p>
+              <p><strong>Published at:</strong> ${new Date(article.publishedAt).toLocaleString()}</p>
+            `,
+          });
+          break;
+        case 'Rejected':
+          await this.notifyAuthor(article, {
+            subject: `Your article has been rejected: ${article.title}`,
+            htmlContent: `
+              <h2>Your article has been rejected</h2>
+              <p><strong>Title:</strong> ${article.title}</p>
+              <p><strong>Reason:</strong> ${article.rejectionNote || 'No reason provided'}</p>
+              <p>Please review the feedback and resubmit when ready.</p>
+            `,
+          });
+          break;
+      }
+    } catch (error: any) {
+      logger.handleErrorLog(`Failed to send status notification: ${error?.message}`);
+    }
+  }
+
+  private async notifyEditors(article: any) {
+    const users = await this.prismaService.user.findMany({
+      where: {
+        internalProfile: {
+          role: { name: { in: ['editor', 'admin'] } },
+        },
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { email: true, fullName: true },
+    });
+
+    if (!users.length) return;
+
+    const authorName = article.author?.displayName || article.author?.user?.fullName || 'Unknown';
+
+    await this.mailService.send({
+      to: users.map((u) => ({ email: u.email, name: u.fullName })),
+      subject: `Article submitted for review: ${article.title}`,
+      htmlContent: `
+        <h2>A new article is ready for review</h2>
+        <p><strong>Title:</strong> ${article.title}</p>
+        <p><strong>Author:</strong> ${authorName}</p>
+        <p><strong>Category:</strong> ${article.category?.name || 'N/A'}</p>
+      `,
+    });
+
+    logger.handleInfoLog(`Review notification sent for article: ${article.id}`);
+  }
+
+  private async notifyAuthor(article: any, mail: { subject: string; htmlContent: string }) {
+    const author = await this.prismaService.internalProfile.findUnique({
+      where: { id: article.authorId },
+      select: { user: { select: { email: true, fullName: true } } },
+    });
+
+    if (!author?.user) return;
+
+    await this.mailService.send({
+      to: { email: author.user.email, name: author.user.fullName },
+      subject: mail.subject,
+      htmlContent: mail.htmlContent,
+    });
+
+    logger.handleInfoLog(`Author notification sent for article: ${article.id}`);
+  }
+
   async findAll(query: QueryArticleDto) {
     const { page, limit, skip } = OffsetPagination.parse(query);
     const where = await this.buildWhere(query);
@@ -618,6 +703,10 @@ class ArticleService {
       data: updateData,
       include: ARTICLE_INCLUDE,
     });
+
+    if (data.status) {
+      this.notifyOnStatusChange(updated, data.status);
+    }
 
     logger.handleInfoLog(`Article updated: ${id}`);
     return updated;

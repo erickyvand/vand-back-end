@@ -30,8 +30,8 @@ export async function seedAdmin(prisma: PrismaClient) {
 
     const user = await transaction.user.create({
       data: {
-        fullName: 'Ericky Vand',
-        slug: 'ericky-vand',
+        fullName: 'Menyesha Editorial Team',
+        slug: 'menyesha-editorial-team',
         email: ADMIN_EMAIL as string,
         password: hashedPassword,
         userType: 'Internal',
