@@ -47,8 +47,12 @@ CREATE TABLE "Authentication"."InternalProfiles" (
     "roleId" TEXT NOT NULL,
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT true,
     "lastPasswordChange" TIMESTAMP(3),
-    "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "termsAcceptedAt" TIMESTAMP(3),
+    "termsVersion" TEXT,
+    "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT true,
     "twoFactorSecret" TEXT,
+    "twoFactorOtp" TEXT,
+    "twoFactorOtpExpiry" TIMESTAMP(3),
     "isSuspended" BOOLEAN NOT NULL DEFAULT false,
     "suspendedReason" TEXT,
     "suspendedAt" TIMESTAMP(3),
@@ -56,11 +60,27 @@ CREATE TABLE "Authentication"."InternalProfiles" (
     "createdBy" TEXT,
     "avatar" TEXT,
     "bio" TEXT,
+    "displayName" TEXT,
+    "xLink" TEXT,
+    "linkedinLink" TEXT,
     "timezone" TEXT NOT NULL DEFAULT 'Africa/Kigali',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "InternalProfiles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Authentication"."Terms" (
+    "id" TEXT NOT NULL,
+    "version" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT false,
+    "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Terms_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -90,6 +110,9 @@ CREATE UNIQUE INDEX "Users_phone_key" ON "Authentication"."Users"("phone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Roles_name_key" ON "Authentication"."Roles"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Terms_version_key" ON "Authentication"."Terms"("version");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "InternalProfiles_userId_key" ON "Authentication"."InternalProfiles"("userId");
