@@ -41,7 +41,7 @@ class MediaController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadFile(
     @Req() req: Request,
     @Res() res: Response,
@@ -52,6 +52,14 @@ class MediaController {
       return ResponseCommon.handleError(
         HttpStatus.BAD_REQUEST,
         'No file provided',
+        res,
+      );
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return ResponseCommon.handleError(
+        HttpStatus.BAD_REQUEST,
+        'File size exceeds the 5MB limit',
         res,
       );
     }
