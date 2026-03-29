@@ -100,7 +100,8 @@ class AuthController {
     @Body() body: ChangePasswordDto,
   ) {
     const user = req.user as any;
-    await this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+    const roleName = user.internalProfile?.role?.name;
+    await this.authService.changePassword(user.id, body.currentPassword, body.newPassword, roleName, body.acceptTerms);
     return ResponseCommon.handleSuccess(HttpStatus.OK, 'Password changed successfully', res, null);
   }
 

@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, MinLength, IsBoolean, Equals } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, MinLength, IsBoolean, IsOptional } from 'class-validator';
 
 export class ChangePasswordDto {
   @ApiProperty({ example: 'temporaryPassword123' })
@@ -12,11 +12,11 @@ export class ChangePasswordDto {
   @MinLength(8)
   newPassword!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: true,
-    description: 'Must be true — confirms acceptance of terms and conditions',
+    description: 'Must be true for non-admin roles — confirms acceptance of terms and conditions',
   })
+  @IsOptional()
   @IsBoolean()
-  @Equals(true, { message: 'You must accept the terms and conditions' })
-  acceptTerms!: boolean;
+  acceptTerms?: boolean;
 }

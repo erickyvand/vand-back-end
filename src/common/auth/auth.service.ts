@@ -183,7 +183,7 @@ class AuthService {
     };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(userId: string, currentPassword: string, newPassword: string, roleName?: string, acceptTerms?: boolean) {
     const user = await this.prismaService.user.findUnique({
       where: { id: userId },
       include: { internalProfile: true },
@@ -191,6 +191,12 @@ class AuthService {
 
     if (!user || !user.internalProfile) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const isAdmin = roleName === 'admin';
+
+    if (!isAdmin && !acceptTerms) {
+      throw new HttpException('You must accept the terms and conditions', HttpStatus.BAD_REQUEST);
     }
 
     const isPasswordValid = await this.argon.verifyPassword(user.password, currentPassword);
@@ -204,28 +210,33 @@ class AuthService {
 
     const hashed = await this.argon.hashPassword(newPassword);
 
-    await this.prismaService.user.update({
-      where: { id: userId },
-      data: { password: hashed },
-    });
+    const profileData: any = {
+      mustChangePassword: false,
+      lastPasswordChange: new Date(),
+    };
 
-    const activeTerms = await this.prismaService.terms.findFirst({ where: { isActive: true } });
-    if (!activeTerms) {
-      throw new HttpException(
-        'No active terms and conditions available. Please contact your administrator.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+    if (!isAdmin) {
+      const activeTerms = await this.prismaService.terms.findFirst({ where: { isActive: true } });
+      if (!activeTerms) {
+        throw new HttpException(
+          'No active terms and conditions available. Please contact your administrator.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      profileData.termsAcceptedAt = new Date();
+      profileData.termsVersion = activeTerms.version;
     }
 
-    await this.prismaService.internalProfile.update({
-      where: { userId },
-      data: {
-        mustChangePassword: false,
-        lastPasswordChange: new Date(),
-        termsAcceptedAt: new Date(),
-        termsVersion: activeTerms.version,
-      },
-    });
+    await this.prismaService.$transaction([
+      this.prismaService.user.update({
+        where: { id: userId },
+        data: { password: hashed },
+      }),
+      this.prismaService.internalProfile.update({
+        where: { userId },
+        data: profileData,
+      }),
+    ]);
 
     logger.handleInfoLog(`Password changed for user ${user.email}`);
   }
