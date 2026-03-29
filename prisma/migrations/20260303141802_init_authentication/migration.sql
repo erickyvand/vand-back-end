@@ -11,6 +11,7 @@ CREATE TYPE "Authentication"."Language" AS ENUM ('en', 'fr', 'rw');
 CREATE TABLE "Authentication"."Users" (
     "id" TEXT NOT NULL,
     "fullName" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phone" TEXT,
     "password" TEXT NOT NULL,
@@ -77,6 +78,9 @@ CREATE TABLE "Authentication"."ExternalProfiles" (
 
     CONSTRAINT "ExternalProfiles_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Users_slug_key" ON "Authentication"."Users"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Users_email_key" ON "Authentication"."Users"("email");
