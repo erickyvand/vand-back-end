@@ -923,35 +923,42 @@ class ArticleService {
     }
 
     const tagIds = map(article.tags, 'tagId');
+    const excludeIds = [article.id];
+    let results: any[] = [];
 
     if (tagIds.length > 0) {
-      const byTags = await this.prismaService.article.findMany({
+      results = await this.prismaService.article.findMany({
         where: {
           status: 'Published' as ArticleStatus,
           deletedAt: null,
-          id: { not: article.id },
+          id: { notIn: excludeIds },
+          language: article.language,
           tags: { some: { tagId: { in: tagIds } } },
         },
         orderBy: { publishedAt: 'desc' },
         take,
         include: ARTICLE_INCLUDE,
       });
-
-      if (byTags.length >= 2) return this.enrichWithParentCategory(byTags);
     }
 
-    const byCat = await this.prismaService.article.findMany({
-      where: {
-        status: 'Published' as ArticleStatus,
-        deletedAt: null,
-        id: { not: article.id },
-        categoryId: article.categoryId,
-      },
-      orderBy: { publishedAt: 'desc' },
-      take,
-      include: ARTICLE_INCLUDE,
-    });
-    return this.enrichWithParentCategory(byCat);
+    if (results.length < take) {
+      excludeIds.push(...results.map((a) => a.id));
+      const byCat = await this.prismaService.article.findMany({
+        where: {
+          status: 'Published' as ArticleStatus,
+          deletedAt: null,
+          id: { notIn: excludeIds },
+          language: article.language,
+          categoryId: article.categoryId,
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: take - results.length,
+        include: ARTICLE_INCLUDE,
+      });
+      results = [...results, ...byCat];
+    }
+
+    return this.enrichWithParentCategory(results);
   }
 
   async trending(query: CursorQueryArticleDto) {
