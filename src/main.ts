@@ -1,6 +1,3 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
@@ -17,21 +14,18 @@ import HttpExceptionFilter from './filters/http.exception.filter';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableCors(corsOptions);
-  const config = new DocumentBuilder()
-    .setTitle('Vand API')
-    .setDescription('API documentation for Vand application')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  if (NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Vand API')
+      .setDescription('API documentation for Vand application')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  SwaggerModule.setup('api-docs', app, document, {
-    customCss: readFileSync(
-      join(process.cwd(), 'src/swagger-theme.css'),
-      'utf8',
-    ),
-  });
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api-docs', app, document);
+  }
 
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

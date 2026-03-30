@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { HttpException, HttpStatus } from '@nestjs/common';
 
 dotenv.config({
   path: path.resolve(`${__dirname}/../../../.env`),
@@ -32,15 +31,10 @@ export const {
 const corsWhitelist = CORS_ORIGIN_WHITELIST?.split(';') ?? [];
 export const corsOptions = {
   origin: (origin: string, callback: (error: any, allow?: boolean) => void) => {
-    if (corsWhitelist.indexOf(origin) !== -1) {
+    if (!origin || corsWhitelist.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(
-        new HttpException(
-          `${origin} is not allowed by CORS policy`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ),
-      );
+      callback(null, false);
     }
   },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
