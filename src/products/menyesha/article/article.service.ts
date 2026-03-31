@@ -13,6 +13,30 @@ import { Language, ArticleStatus, FeaturedType } from '@prisma/client';
 
 const logger = new LoggerService('article');
 
+const WORDS_PER_MINUTE = 200;
+
+function extractText(node: any): string {
+  if (!node) return '';
+  if (node.type === 'text') return node.text || '';
+  if (Array.isArray(node.content)) return node.content.map(extractText).join(' ');
+  return '';
+}
+
+function calculateReadMin(content: any): number {
+  const text = extractText(content);
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(wordCount / WORDS_PER_MINUTE));
+}
+
+function addReadMin(article: any): any {
+  if (!article) return article;
+  return { ...article, readMin: article.isBreaking ? null : calculateReadMin(article.content) };
+}
+
+function addReadMinToList(articles: any[]): any[] {
+  return articles.map(addReadMin);
+}
+
 const ARTICLE_INCLUDE = {
   category: true,
   author: {
@@ -223,7 +247,7 @@ class ArticleService {
       });
 
       logger.handleInfoLog(`Article created: ${article.id} by ${authorId}`);
-      return article;
+      return addReadMin(article);
     } catch (error: any) {
       if (error instanceof HttpException) throw error;
 
@@ -455,7 +479,7 @@ class ArticleService {
     ]);
 
     const enriched = await this.enrichWithParentCategory(articles);
-    return { articles: enriched, meta: OffsetPagination.meta(total, page, limit) };
+    return { articles: addReadMinToList(enriched), meta: OffsetPagination.meta(total, page, limit) };
   }
 
   async findAllCursor(query: CursorQueryArticleDto) {
@@ -471,7 +495,7 @@ class ArticleService {
 
     const { data: articles, meta } = CursorPagination.result(items, limit);
     const enriched = await this.enrichWithParentCategory(articles);
-    return { articles: enriched, meta };
+    return { articles: addReadMinToList(enriched), meta };
   }
 
   async findOne(id: string, language?: string, ip?: string, userAgent?: string, isInternal?: boolean) {
@@ -491,7 +515,7 @@ class ArticleService {
     }
 
     const [enriched] = await this.enrichWithParentCategory([article]);
-    return enriched;
+    return addReadMin(enriched);
   }
 
   async findBySlug(slug: string, language?: string, subCategorySlug?: string, ip?: string, userAgent?: string, isInternal?: boolean) {
@@ -524,7 +548,7 @@ class ArticleService {
     }
 
     const [enriched] = await this.enrichWithParentCategory([article]);
-    return enriched;
+    return addReadMin(enriched);
   }
 
   async update(id: string, data: UpdateArticleDto, user: any) {
@@ -709,7 +733,7 @@ class ArticleService {
     }
 
     logger.handleInfoLog(`Article updated: ${id}`);
-    return updated;
+    return addReadMin(updated);
   }
 
   async addTags(id: string, tagIds: string[]) {
@@ -758,7 +782,7 @@ class ArticleService {
     });
 
     logger.handleInfoLog(`Tags added to article: ${id}`);
-    return updated;
+    return addReadMin(updated);
   }
 
   async removeTags(id: string, tagIds: string[]) {
@@ -783,7 +807,7 @@ class ArticleService {
     });
 
     logger.handleInfoLog(`Tags removed from article: ${id}`);
-    return updated;
+    return addReadMin(updated);
   }
 
   private generateTagSlug(text: string): string {
@@ -867,7 +891,7 @@ class ArticleService {
       include: ARTICLE_INCLUDE,
     });
 
-    return { article: updated, created, skipped };
+    return { article: addReadMin(updated), created, skipped };
   }
 
   async softDelete(id: string, user: any) {
@@ -909,7 +933,8 @@ class ArticleService {
       orderBy: { createdAt: 'desc' },
       include: ARTICLE_INCLUDE,
     });
-    return this.enrichWithParentCategory(breaking);
+    const enriched = await this.enrichWithParentCategory(breaking);
+    return addReadMinToList(enriched);
   }
 
   async getRelatedArticles(slug: string, take = 4) {
@@ -958,7 +983,8 @@ class ArticleService {
       results = [...results, ...byCat];
     }
 
-    return this.enrichWithParentCategory(results);
+    const enriched = await this.enrichWithParentCategory(results);
+    return addReadMinToList(enriched);
   }
 
   async trending(query: CursorQueryArticleDto) {
@@ -975,7 +1001,7 @@ class ArticleService {
 
     const { data: articles, meta } = CursorPagination.result(items, limit);
     const enriched = await this.enrichWithParentCategory(articles);
-    return { articles: enriched, meta };
+    return { articles: addReadMinToList(enriched), meta };
   }
 
   private async findAuthorBySlug(slug: string) {
@@ -1029,7 +1055,7 @@ class ArticleService {
       this.prismaService.article.count({ where }),
     ]);
 
-    return { articles, meta: OffsetPagination.meta(total, page, limit) };
+    return { articles: addReadMinToList(articles), meta: OffsetPagination.meta(total, page, limit) };
   }
 }
 
